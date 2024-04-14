@@ -7,10 +7,12 @@ import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
 import com.guicedee.services.jsonrepresentation.IJsonRepresentation;
 import com.guicedee.vertx.spi.VertxConfigurator;
 import com.guicedee.vertx.spi.VertxHttpServerConfigurator;
+import com.guicedee.vertx.spi.VertxHttpServerOptionsConfigurator;
 import com.guicedee.vertx.spi.VertxRouterConfigurator;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxBuilder;
 import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.jackson.DatabindCodec;
 import io.vertx.ext.web.Router;
 import jakarta.inject.Singleton;
@@ -37,7 +39,13 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
                 builder = vertxRouterConfigurator.builder(builder);
             }
             vertx = builder.build();
-            HttpServer server = vertx.createHttpServer();
+            HttpServerOptions serverOptions = new HttpServerOptions();
+            ServiceLoader<VertxHttpServerOptionsConfigurator> options = ServiceLoader.load(VertxHttpServerOptionsConfigurator.class);
+            for (VertxHttpServerOptionsConfigurator option : options)
+            {
+                serverOptions = option.builder(serverOptions);
+            }
+            HttpServer server = vertx.createHttpServer(serverOptions);
             ServiceLoader<VertxHttpServerConfigurator> servers = ServiceLoader.load(VertxHttpServerConfigurator.class);
             for (VertxHttpServerConfigurator a : servers)
             {

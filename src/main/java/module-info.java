@@ -22,4 +22,5 @@ module guiced.vertx {
     uses com.guicedee.vertx.spi.VertxConfigurator;
     uses com.guicedee.vertx.spi.VertxRouterConfigurator;
     uses com.guicedee.vertx.spi.VertxHttpServerConfigurator;
+    uses com.guicedee.vertx.spi.VertxHttpServerOptionsConfigurator;
 }
