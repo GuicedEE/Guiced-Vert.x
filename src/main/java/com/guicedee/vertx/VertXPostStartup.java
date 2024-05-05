@@ -1,9 +1,8 @@
 package com.guicedee.vertx;
 
 import com.guicedee.client.Environment;
-import com.guicedee.client.IGuiceContext;
-import com.guicedee.guicedinjection.interfaces.IGuicePostStartup;
 import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
+import com.guicedee.guicedinjection.interfaces.IGuicePreStartup;
 import com.guicedee.services.jsonrepresentation.IJsonRepresentation;
 import com.guicedee.vertx.spi.VertxConfigurator;
 import com.guicedee.vertx.spi.VertxHttpServerConfigurator;
@@ -22,12 +21,12 @@ import java.util.ServiceLoader;
 
 @Singleton
 @Getter
-public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IGuicePreDestroy<VertXPostStartup>
+public class VertXPostStartup implements IGuicePreStartup<VertXPostStartup>, IGuicePreDestroy<VertXPostStartup>
 {
-    private Vertx vertx;
+    private static Vertx vertx;
 
     @Override
-    public synchronized void postLoad()
+    public void onStartup()
     {
         if (vertx == null)
         {
@@ -35,8 +34,7 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
             ServiceLoader<VertxConfigurator> load = ServiceLoader.load(VertxConfigurator.class);
             for (VertxConfigurator a : load)
             {
-                VertxConfigurator vertxRouterConfigurator = IGuiceContext.get(a.getClass());
-                builder = vertxRouterConfigurator.builder(builder);
+                builder = a.builder(builder);
             }
             vertx = builder.build();
             HttpServerOptions serverOptions = new HttpServerOptions();
@@ -49,17 +47,16 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
             ServiceLoader<VertxHttpServerConfigurator> servers = ServiceLoader.load(VertxHttpServerConfigurator.class);
             for (VertxHttpServerConfigurator a : servers)
             {
-                VertxHttpServerConfigurator vertxRouterConfigurator = IGuiceContext.get(a.getClass());
-                server = vertxRouterConfigurator.builder(server);
+                server = a.builder(server);
             }
             Router router = Router.router(vertx);
             ServiceLoader<VertxRouterConfigurator> routes = ServiceLoader.load(VertxRouterConfigurator.class);
             for (VertxRouterConfigurator route : routes)
             {
-                VertxRouterConfigurator vertxRouterConfigurator = IGuiceContext.get(route.getClass());
-                router = vertxRouterConfigurator.builder(router);
+                router = route.builder(router);
             }
             IJsonRepresentation.configureObjectMapper(DatabindCodec.mapper());
+
             server = server.requestHandler(router);
             server .listen(Integer.parseInt(Environment.getProperty("HTTP_PORT", "8080")));
         }
@@ -67,10 +64,6 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
 
     public Vertx getVertx()
     {
-        if (vertx == null)
-        {
-            postLoad();
-        }
         return vertx;
     }
 

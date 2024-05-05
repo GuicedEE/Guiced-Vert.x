@@ -1,6 +1,6 @@
 import com.guicedee.guicedinjection.interfaces.IGuiceModule;
-import com.guicedee.guicedinjection.interfaces.IGuicePostStartup;
 import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
+import com.guicedee.guicedinjection.interfaces.IGuicePreStartup;
 import com.guicedee.vertx.VertXModule;
 import com.guicedee.vertx.VertXPostStartup;
 
@@ -15,7 +15,7 @@ module guiced.vertx {
 
     opens com.guicedee.vertx to com.google.guice;
 
-    provides IGuicePostStartup with VertXPostStartup;
+    provides IGuicePreStartup with VertXPostStartup;
     provides IGuicePreDestroy with VertXPostStartup;
     provides IGuiceModule with VertXModule;
 
