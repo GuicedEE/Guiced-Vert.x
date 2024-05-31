@@ -16,7 +16,9 @@ import io.vertx.ext.web.Router;
 import jakarta.inject.Singleton;
 import lombok.Getter;
 
+import java.util.List;
 import java.util.ServiceLoader;
+import java.util.concurrent.CompletableFuture;
 
 import static com.guicedee.vertx.VertXPreStartup.vertx;
 
@@ -25,31 +27,34 @@ import static com.guicedee.vertx.VertXPreStartup.vertx;
 public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IGuicePreDestroy<VertXPostStartup>
 {
     @Override
-    public void postLoad()
+    public List<CompletableFuture<Boolean>> postLoad()
     {
-        HttpServerOptions serverOptions = new HttpServerOptions();
-        ServiceLoader<VertxHttpServerOptionsConfigurator> options = ServiceLoader.load(VertxHttpServerOptionsConfigurator.class);
-        for (VertxHttpServerOptionsConfigurator option : options)
-        {
-            serverOptions = option.builder(IGuiceContext.get(serverOptions.getClass()));
-        }
-        HttpServer server = vertx.createHttpServer(serverOptions);
-        ServiceLoader<VertxHttpServerConfigurator> servers = ServiceLoader.load(VertxHttpServerConfigurator.class);
-        for (VertxHttpServerConfigurator a : servers)
-        {
-            server = IGuiceContext.get(a.getClass())
-                                  .builder(server);
-        }
-        Router router = Router.router(vertx);
-        ServiceLoader<VertxRouterConfigurator> routes = ServiceLoader.load(VertxRouterConfigurator.class);
-        for (VertxRouterConfigurator route : routes)
-        {
-            router = IGuiceContext.get(route.getClass()).builder(router);
-        }
-        IJsonRepresentation.configureObjectMapper(DatabindCodec.mapper());
+        return List.of(CompletableFuture.supplyAsync(() -> {
+            HttpServerOptions serverOptions = new HttpServerOptions();
+            ServiceLoader<VertxHttpServerOptionsConfigurator> options = ServiceLoader.load(VertxHttpServerOptionsConfigurator.class);
+            for (VertxHttpServerOptionsConfigurator option : options)
+            {
+                serverOptions = option.builder(IGuiceContext.get(serverOptions.getClass()));
+            }
+            HttpServer server = vertx.createHttpServer(serverOptions);
+            ServiceLoader<VertxHttpServerConfigurator> servers = ServiceLoader.load(VertxHttpServerConfigurator.class);
+            for (VertxHttpServerConfigurator a : servers)
+            {
+                server = IGuiceContext.get(a.getClass())
+                                      .builder(server);
+            }
+            Router router = Router.router(vertx);
+            ServiceLoader<VertxRouterConfigurator> routes = ServiceLoader.load(VertxRouterConfigurator.class);
+            for (VertxRouterConfigurator route : routes)
+            {
+                router = IGuiceContext.get(route.getClass()).builder(router);
+            }
+            IJsonRepresentation.configureObjectMapper(DatabindCodec.mapper());
 
-        server = server.requestHandler(router);
-        server.listen(Integer.parseInt(Environment.getProperty("HTTP_PORT", "8080")));
+            server = server.requestHandler(router);
+            server.listen(Integer.parseInt(Environment.getProperty("HTTP_PORT", "8080")));
+            return true;
+        }, getExecutorService()));
     }
 
     public Vertx getVertx()
