@@ -31,6 +31,10 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
     {
         return List.of(CompletableFuture.supplyAsync(() -> {
             HttpServerOptions serverOptions = new HttpServerOptions();
+            serverOptions.setCompressionSupported(true);
+            serverOptions.setCompressionLevel(9);
+            serverOptions.setWebSocketCompressionLevel(9);
+            serverOptions.setTcpKeepAlive(true);
             ServiceLoader<VertxHttpServerOptionsConfigurator> options = ServiceLoader.load(VertxHttpServerOptionsConfigurator.class);
             for (VertxHttpServerOptionsConfigurator option : options)
             {
