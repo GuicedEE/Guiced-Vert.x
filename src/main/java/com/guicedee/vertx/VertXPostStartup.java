@@ -56,7 +56,14 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
             IJsonRepresentation.configureObjectMapper(DatabindCodec.mapper());
 
             server = server.requestHandler(router);
-            server.listen(Integer.parseInt(Environment.getProperty("HTTP_PORT", "8080")));
+            if(Boolean.parseBoolean(Environment.getProperty("HTTP_ENABLED","true")))
+            {
+                server.listen(Integer.parseInt(Environment.getProperty("HTTP_PORT", "8080")));
+            }
+            if(Boolean.parseBoolean(Environment.getProperty("HTTPS_ENABLED","true")))
+            {
+
+            }
             return true;
         }, getExecutorService()));
     }
