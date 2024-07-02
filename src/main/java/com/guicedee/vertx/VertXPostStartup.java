@@ -13,6 +13,7 @@ import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.jackson.DatabindCodec;
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.handler.BodyHandler;
 import jakarta.inject.Singleton;
 import lombok.Getter;
 
@@ -48,6 +49,7 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
                                       .builder(server);
             }
             Router router = Router.router(vertx);
+            router.route().handler(BodyHandler.create().setUploadsDirectory("uploads").setDeleteUploadedFilesOnEnd(true));
             ServiceLoader<VertxRouterConfigurator> routes = ServiceLoader.load(VertxRouterConfigurator.class);
             for (VertxRouterConfigurator route : routes)
             {
