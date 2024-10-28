@@ -4,10 +4,10 @@ import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
 import com.guicedee.guicedinjection.interfaces.IGuicePreStartup;
 import com.guicedee.vertx.VertXModule;
 import com.guicedee.vertx.VertXPostStartup;
-import com.guicedee.vertx.VertXPreStartup;
+import com.guicedee.vertx.spi.VertXPreStartup;
 
 module guiced.vertx {
-    requires io.vertx;
+    requires transitive io.vertx.core;
 
     requires com.guicedee.client;
     requires com.guicedee.jsonrepresentation;
@@ -16,6 +16,7 @@ module guiced.vertx {
     exports com.guicedee.vertx.spi;
 
     opens com.guicedee.vertx to com.google.guice;
+    opens com.guicedee.vertx.spi to com.google.guice;
 
     provides IGuicePreStartup with VertXPreStartup;
     provides IGuicePostStartup with VertXPostStartup;

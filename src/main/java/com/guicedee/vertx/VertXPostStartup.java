@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 
-import static com.guicedee.vertx.VertXPreStartup.vertx;
+import static com.guicedee.vertx.spi.VertXPreStartup.vertx;
 
 @Singleton
 @Getter

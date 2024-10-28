@@ -1,1 +1,1 @@
-com.guicedee.vertx.VertXPreStartup
+com.guicedee.vertx.spi.VertXPreStartup

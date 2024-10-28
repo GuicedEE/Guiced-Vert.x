@@ -1,8 +1,7 @@
-package com.guicedee.vertx;
+package com.guicedee.vertx.spi;
 
 import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
 import com.guicedee.guicedinjection.interfaces.IGuicePreStartup;
-import com.guicedee.vertx.spi.VertxConfigurator;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxBuilder;
 import jakarta.inject.Singleton;
