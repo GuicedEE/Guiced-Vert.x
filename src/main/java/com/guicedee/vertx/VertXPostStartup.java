@@ -66,7 +66,7 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
 
                 } else if (Environment.getSystemPropertyOrEnvironment("HTTPS_KEYSTORE", "").toLowerCase().endsWith("jks")) {
                     serverOptions
-                            .setKeyStoreOptions(new JksOptions()
+                            .setKeyCertOptions(new JksOptions()
                                     .setPassword(Environment.getSystemPropertyOrEnvironment("HTTPS_KEYSTORE_PASSWORD", "changeit"))
                                     .setPath(Environment.getSystemPropertyOrEnvironment("HTTPS_KEYSTORE", "keystore.jks")));
                 }
