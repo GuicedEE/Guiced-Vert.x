@@ -52,7 +52,7 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
                 httpServers.add(server);
             }
 
-            if (Boolean.parseBoolean(Environment.getProperty("HTTPS_ENABLED", "true"))) {
+            if (Boolean.parseBoolean(Environment.getProperty("HTTPS_ENABLED", "false"))) {
                 serverOptions.setSsl(true).setUseAlpn(true);
                 serverOptions.setPort(Integer.parseInt(Environment.getSystemPropertyOrEnvironment("HTTPS_PORT", "443")));
                 if (Environment.getSystemPropertyOrEnvironment("HTTPS_KEYSTORE", "").toLowerCase().endsWith("pfx") ||
