@@ -6,7 +6,7 @@ import com.guicedee.vertx.VertXModule;
 import com.guicedee.vertx.VertXPostStartup;
 import com.guicedee.vertx.spi.VertXPreStartup;
 
-module guiced.vertx {
+module com.guicedee.vertx {
     requires transitive io.vertx.core;
 
     requires com.guicedee.client;
