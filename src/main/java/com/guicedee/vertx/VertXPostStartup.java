@@ -38,8 +38,12 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
             HttpServerOptions serverOptions = new HttpServerOptions();
             serverOptions.setCompressionSupported(true);
             serverOptions.setCompressionLevel(9);
-            serverOptions.setWebSocketCompressionLevel(9);
+//serverOptions.setWebSocketCompressionLevel(9);
             serverOptions.setTcpKeepAlive(true);
+            serverOptions.setMaxHeaderSize(65536);
+            serverOptions.setMaxChunkSize(65536);
+            serverOptions.setMaxFormAttributeSize(65536);
+            serverOptions.setMaxFormFields(-1);
             ServiceLoader<VertxHttpServerOptionsConfigurator> options = ServiceLoader.load(VertxHttpServerOptionsConfigurator.class);
             for (VertxHttpServerOptionsConfigurator option : options) {
                 serverOptions = option.builder(IGuiceContext.get(serverOptions.getClass()));
