@@ -8,6 +8,7 @@ import com.guicedee.vertx.spi.VertXPreStartup;
 
 module com.guicedee.vertx {
     requires transitive io.vertx.core;
+    requires transitive io.vertx.web;
 
     requires com.guicedee.client;
     requires com.guicedee.jsonrepresentation;
