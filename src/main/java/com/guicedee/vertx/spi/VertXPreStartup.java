@@ -4,6 +4,7 @@ import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
 import com.guicedee.guicedinjection.interfaces.IGuicePreStartup;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxBuilder;
+import io.vertx.core.VertxOptions;
 import jakarta.inject.Singleton;
 import lombok.Getter;
 
@@ -27,6 +28,9 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             {
                 builder = a.builder(builder);
             }
+            builder.with(new VertxOptions().setBlockedThreadCheckInterval(2000)
+                    .setWorkerPoolSize(20)
+            );
             vertx = builder.build();
         }
     }
