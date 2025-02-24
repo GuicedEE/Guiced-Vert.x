@@ -46,12 +46,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.guicedee</groupId>
-            <artifactId>guice-injection</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-core</artifactId>
         </dependency>
