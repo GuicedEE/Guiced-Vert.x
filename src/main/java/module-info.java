@@ -10,8 +10,8 @@ module com.guicedee.vertx {
     requires transitive io.vertx.core;
     requires transitive io.vertx.web;
 
-    requires com.guicedee.client;
-    requires com.guicedee.jsonrepresentation;
+    requires transitive com.guicedee.client;
+    requires transitive com.guicedee.jsonrepresentation;
 
     requires static lombok;
     exports com.guicedee.vertx.spi;
