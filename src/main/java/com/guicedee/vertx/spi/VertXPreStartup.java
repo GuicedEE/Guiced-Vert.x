@@ -2,9 +2,11 @@ package com.guicedee.vertx.spi;
 
 import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
 import com.guicedee.guicedinjection.interfaces.IGuicePreStartup;
+import com.guicedee.services.jsonrepresentation.IJsonRepresentation;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxBuilder;
 import io.vertx.core.VertxOptions;
+import io.vertx.core.json.jackson.DatabindCodec;
 import jakarta.inject.Singleton;
 import lombok.Getter;
 
@@ -22,15 +24,18 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     {
         if (vertx == null)
         {
+            IJsonRepresentation.configureObjectMapper(DatabindCodec.mapper());
+
             VertxBuilder builder = Vertx.builder();
             ServiceLoader<VertxConfigurator> load = ServiceLoader.load(VertxConfigurator.class);
+            builder.with(new VertxOptions().setBlockedThreadCheckInterval(10000)
+                    .setWarningExceptionTime(2000)
+                    .setWorkerPoolSize(20)
+            );
             for (VertxConfigurator a : load)
             {
                 builder = a.builder(builder);
             }
-            builder.with(new VertxOptions().setBlockedThreadCheckInterval(2000)
-                    .setWorkerPoolSize(20)
-            );
             vertx = builder.build();
         }
     }

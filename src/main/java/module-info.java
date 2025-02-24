@@ -13,6 +13,12 @@ module com.guicedee.vertx {
     requires transitive com.guicedee.client;
     requires transitive com.guicedee.jsonrepresentation;
 
+    requires transitive org.apache.logging.log4j;
+
+    requires transitive com.fasterxml.jackson.databind;
+    requires transitive com.fasterxml.jackson.annotation;
+    requires transitive com.fasterxml.jackson.core;
+
     requires static lombok;
     exports com.guicedee.vertx.spi;
 

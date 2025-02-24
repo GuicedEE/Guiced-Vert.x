@@ -16,6 +16,7 @@ import io.vertx.core.net.JksOptions;
 import io.vertx.core.net.PfxOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.Getter;
 import lombok.extern.java.Log;
@@ -32,13 +33,17 @@ import static com.guicedee.vertx.spi.VertXPreStartup.vertx;
 @Getter
 @Log
 public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IGuicePreDestroy<VertXPostStartup> {
+
+    @Inject
+    private Vertx vertx;
+
     @Override
     public List<CompletableFuture<Boolean>> postLoad() {
+
         return List.of(CompletableFuture.supplyAsync(() -> {
             HttpServerOptions serverOptions = new HttpServerOptions();
-            serverOptions.setCompressionSupported(false);
+            serverOptions.setCompressionSupported(true);
             serverOptions.setCompressionLevel(9);
-//serverOptions.setWebSocketCompressionLevel(9);
             serverOptions.setTcpKeepAlive(true);
             serverOptions.setMaxHeaderSize(65536);
             serverOptions.setMaxChunkSize(65536);
@@ -108,6 +113,7 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
 
             return true;
         }, getExecutorService()));
+
     }
 
     public Vertx getVertx() {
