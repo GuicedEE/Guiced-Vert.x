@@ -1,10 +1,7 @@
-import com.guicedee.guicedinjection.interfaces.IGuiceModule;
-import com.guicedee.guicedinjection.interfaces.IGuicePostStartup;
-import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
-import com.guicedee.guicedinjection.interfaces.IGuicePreStartup;
 import com.guicedee.vertx.VertXModule;
 import com.guicedee.vertx.VertXPostStartup;
-import com.guicedee.vertx.spi.VertXPreStartup;
+import com.guicedee.vertx.spi.*;
+import com.guicedee.guicedinjection.interfaces.*;
 
 module com.guicedee.vertx {
     requires transitive io.vertx.core;
@@ -31,7 +28,4 @@ module com.guicedee.vertx {
     provides IGuiceModule with VertXModule;
 
     uses com.guicedee.vertx.spi.VertxConfigurator;
-    uses com.guicedee.vertx.spi.VertxRouterConfigurator;
-    uses com.guicedee.vertx.spi.VertxHttpServerConfigurator;
-    uses com.guicedee.vertx.spi.VertxHttpServerOptionsConfigurator;
 }
