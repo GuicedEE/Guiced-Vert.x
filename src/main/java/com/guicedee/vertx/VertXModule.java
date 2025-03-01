@@ -13,7 +13,5 @@ public class VertXModule extends PrivateModule implements IGuiceModule<VertXModu
         bind(Vertx.class).toInstance(VertXPreStartup.getVertx());
         expose(Vertx.class);
 
-
-
     }
 }
