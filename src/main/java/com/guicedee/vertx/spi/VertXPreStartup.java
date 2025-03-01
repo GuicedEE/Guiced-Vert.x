@@ -28,7 +28,8 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
 
             VertxBuilder builder = Vertx.builder();
             ServiceLoader<VertxConfigurator> load = ServiceLoader.load(VertxConfigurator.class);
-            builder.with(new VertxOptions().setBlockedThreadCheckInterval(10000)
+            builder.with(new VertxOptions()
+                    .setBlockedThreadCheckInterval(10000)
                     .setWarningExceptionTime(2000)
                     .setWorkerPoolSize(20)
             );
@@ -38,6 +39,15 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             }
             vertx = builder.build();
         }
+    }
+
+    public static Vertx getVertx()
+    {
+        if (vertx == null)
+        {
+            new VertXPreStartup().onStartup();
+        }
+        return vertx;
     }
 
     @Override
