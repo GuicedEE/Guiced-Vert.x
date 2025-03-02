@@ -31,11 +31,11 @@ public class VertXVerticalPreStartup implements IGuicePreStartup<VertXVerticalPr
     {
         Promise<Boolean> promise = Promise.promise();
         VertXPreStartup.getVertx().executeBlocking(() -> {
-            log.info("Vert.x Post Startup Complete. Checking for verticles");
+            log.debug("Vert.x Post Startup Complete. Checking for verticles");
             var verticlePackages = verticleBuilder.findVerticles();
             if (!verticlePackages.isEmpty() && verticlePackages.keySet().stream().noneMatch(String::isEmpty))
             {
-                log.info("Found Verticles. Deploying [{}] verticles...", verticlePackages.size());
+                log.debug("Found Verticles. Deploying [{}] verticles...", verticlePackages.size());
                 List<Future<?>> futures = new ArrayList<>();
                 verticlePackages.forEach((key, value) -> {
                     log.info("Deploying Verticle: {} - {}", key, value.getClass().getSimpleName());

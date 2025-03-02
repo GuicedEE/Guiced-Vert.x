@@ -29,31 +29,31 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
     private VerticleBuilder verticleBuilder;
 
     @Override
-    public List<CompletableFuture<Boolean>> postLoad()
+    public List<Future<Boolean>> postLoad()
     {
-        Promise<Boolean> promise = Promise.promise();
-        vertx.executeBlocking(() -> {
-            log.info("Vert.x Post Startup Complete. Checking for verticles");
-            var verticlePackages = verticleBuilder.findVerticles();
-            if (!verticlePackages.isEmpty() && verticlePackages.keySet().stream().noneMatch(String::isEmpty))
-            {
-                log.info("Found Verticles. Deploying [{}] verticles...", verticlePackages.size());
-                List<Future<?>> futures = new ArrayList<>();
+       /* Promise<Boolean> promise = Promise.promise();
+        log.info("Vert.x Post Startup Complete. Checking for verticles");
+        List<Future<Boolean>> verticles = new ArrayList<>();
+        List<Future<?>> futures = new ArrayList<>();
+
+        var verticlePackages = verticleBuilder.findVerticles();
+        log.info("Deploying [{}] verticles...", verticlePackages.size());
+        if (!verticlePackages.isEmpty() && verticlePackages.keySet().stream().noneMatch(String::isEmpty))
+        {
+            verticles.add(vertx.executeBlocking(() -> {
                 verticlePackages.forEach((key, value) -> {
                     log.info("Deploying Verticle: {} - {}", key, value.getClass().getSimpleName());
                     futures.add(vertx.deployVerticle(value));
                 });
-                Future.all(futures).onComplete(ar -> {
-                            promise.complete();
-                        })
-                        .onFailure(promise::fail);
-            } else
-            {
-                promise.complete();
-            }
-            return true;
-        }, false);
-        return List.of(promise.future().toCompletionStage().toCompletableFuture());
+                return true;
+            }, false));
+        }
+        Future.all(futures).onComplete(ar -> {
+                    promise.complete();
+                })
+                .onFailure(promise::fail);
+*/
+        return List.of(Future.succeededFuture(true));
     }
 
     @Override
