@@ -1,7 +1,7 @@
 package com.guicedee.vertx;
 
-import com.guicedee.guicedinjection.interfaces.IGuicePostStartup;
 import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
+import com.guicedee.guicedinjection.interfaces.IGuicePreStartup;
 import com.guicedee.vertx.spi.VerticleBuilder;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -13,12 +13,11 @@ import lombok.extern.java.Log;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 @Getter
 @Singleton
 @Log
-public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IGuicePreDestroy<VertXPostStartup>
+public class VertXVerticalPreStartup implements IGuicePreStartup<VertXVerticalPreStartup>, IGuicePreDestroy<VertXVerticalPreStartup>
 {
 
     @Inject
@@ -28,7 +27,13 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
     private VerticleBuilder verticleBuilder;
 
     @Override
-    public List<CompletableFuture<Boolean>> postLoad()
+    public void onDestroy()
+    {
+        vertx.close();
+    }
+
+    @Override
+    public List<Future<Boolean>> onStartup()
     {
         Promise<Boolean> promise = Promise.promise();
         vertx.executeBlocking(() -> {
@@ -52,18 +57,13 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
             }
             return true;
         }, false);
-        return List.of(promise.future().toCompletionStage().toCompletableFuture());
-    }
 
-    @Override
-    public void onDestroy()
-    {
-        vertx.close();
+        return List.of(promise.future());
     }
 
     @Override
     public Integer sortOrder()
     {
-        return Integer.MIN_VALUE + 50;
+        return Integer.MIN_VALUE + 51;
     }
 }

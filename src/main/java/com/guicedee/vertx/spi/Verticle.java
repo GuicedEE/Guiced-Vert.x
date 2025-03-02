@@ -37,9 +37,9 @@ public @interface Verticle {
      *     <li>{@link io.vertx.core.ThreadingModel#WORKER}: Allows blocking operations to be handled via a worker thread pool.</li>
      * </ul>
      *
-     * @return the threading model (default: {@code ThreadingModel.EVENT_LOOP})
+     * @return the threading model (default: {@code ThreadingModel.EVENT_LOOP} - This is now set as a virtual thread)
      */
-    ThreadingModel threadingModel() default ThreadingModel.EVENT_LOOP;
+    ThreadingModel threadingModel() default ThreadingModel.VIRTUAL_THREAD;
 
     /**
      * Defines the number of instances of the verticle to be deployed.

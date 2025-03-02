@@ -4,6 +4,7 @@ import com.guicedee.client.IGuiceContext;
 import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
 import com.guicedee.guicedinjection.interfaces.IGuicePreStartup;
 import com.guicedee.services.jsonrepresentation.IJsonRepresentation;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxBuilder;
 import io.vertx.core.VertxOptions;
@@ -18,10 +19,10 @@ import java.util.ServiceLoader;
 @Getter
 public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuicePreDestroy<VertXPreStartup>
 {
-    public static Vertx vertx;
+    private static Vertx vertx;
 
     @Override
-    public void onStartup() {
+    public List<Future<Boolean>> onStartup() {
         if (vertx == null) {
             // Configure object mapper for JSON serialization
             configureObjectMapper();
@@ -38,6 +39,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             // Build the Vertx instance
             vertx = builder.build();
         }
+        return List.of(Future.succeededFuture(true));
     }
 
     private void configureObjectMapper() {
@@ -51,7 +53,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             throw new RuntimeException("Only one VertX class may be defined");
         }
         if (vertxStaticConfig.size() == 1) {
-            var clazz = vertxStaticConfig.get(0).loadClass();
+            var clazz = vertxStaticConfig.getFirst().loadClass();
             VertX annotation = clazz.getDeclaredAnnotation(VertX.class);
             if (annotation == null) {
                 throw new RuntimeException("Could not read VertX annotation from class");
@@ -88,7 +90,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     private void processMetricsOptions(VertxBuilder builder) {
         var metricsConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(MetricsOptions.class);
         if (metricsConfig.size() == 1) {
-            var clazz = metricsConfig.get(0).loadClass();
+            var clazz = metricsConfig.getFirst().loadClass();
             MetricsOptions metricsAnnotation = clazz.getDeclaredAnnotation(MetricsOptions.class);
             if (metricsAnnotation != null) {
                 builder.with(new VertxOptions()
@@ -101,7 +103,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     private void processFileSystemOptions(VertxBuilder builder) {
         var fileSystemConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(FileSystemOptions.class);
         if (fileSystemConfig.size() == 1) {
-            var clazz = fileSystemConfig.get(0).loadClass();
+            var clazz = fileSystemConfig.getFirst().loadClass();
             FileSystemOptions fileSystemAnnotation = clazz.getDeclaredAnnotation(FileSystemOptions.class);
             if (fileSystemAnnotation != null) {
                 builder.with(new VertxOptions()
@@ -118,7 +120,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     private void processEventBusOptions(VertxBuilder builder) {
         var eventBusConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(EventBusOptions.class);
         if (eventBusConfig.size() == 1) {
-            var clazz = eventBusConfig.get(0).loadClass();
+            var clazz = eventBusConfig.getFirst().loadClass();
             EventBusOptions eventBusAnnotation = clazz.getDeclaredAnnotation(EventBusOptions.class);
             if (eventBusAnnotation != null) {
                 builder.with(new VertxOptions()
@@ -140,7 +142,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     private void processAddressResolverOptions(VertxBuilder builder) {
         var addressResolverConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(AddressResolverOptions.class);
         if (addressResolverConfig.size() == 1) {
-            var clazz = addressResolverConfig.get(0).loadClass();
+            var clazz = addressResolverConfig.getFirst().loadClass();
             AddressResolverOptions addressResolverAnnotation = clazz.getDeclaredAnnotation(AddressResolverOptions.class);
             if (addressResolverAnnotation != null) {
                 builder.with(new VertxOptions()
@@ -191,6 +193,6 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     @Override
     public Integer sortOrder()
     {
-        return Integer.MIN_VALUE + 500;
+        return Integer.MIN_VALUE + 50;
     }
 }

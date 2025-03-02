@@ -1,5 +1,6 @@
 import com.guicedee.vertx.VertXModule;
 import com.guicedee.vertx.VertXPostStartup;
+import com.guicedee.vertx.VertXVerticalPreStartup;
 import com.guicedee.vertx.spi.*;
 import com.guicedee.guicedinjection.interfaces.*;
 
@@ -22,10 +23,11 @@ module com.guicedee.vertx {
     opens com.guicedee.vertx to com.google.guice;
     opens com.guicedee.vertx.spi to com.google.guice;
 
-    provides IGuicePreStartup with VertXPreStartup;
+    provides IGuicePreStartup with VertXPreStartup,VertXVerticalPreStartup;
     provides IGuicePostStartup with VertXPostStartup;
     provides IGuicePreDestroy with VertXPostStartup;
     provides IGuiceModule with VertXModule;
 
     uses com.guicedee.vertx.spi.VertxConfigurator;
+    uses VerticleStartup;
 }
