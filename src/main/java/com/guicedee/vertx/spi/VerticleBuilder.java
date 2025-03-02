@@ -15,9 +15,6 @@ import java.util.concurrent.TimeUnit;
 @Log4j2
 public class VerticleBuilder
 {
-    @Inject
-    private Vertx vertx;
-
     @Getter
     private static final Map<String, io.vertx.core.Verticle> verticlePackages = new TreeMap<>();
     @Getter
@@ -41,7 +38,6 @@ public class VerticleBuilder
         Map<String, io.vertx.core.Verticle> map = new HashMap<>();
         var scanResult = IGuiceContext.instance().getScanResult();
         ClassInfoList foundVerticleClasses = scanResult.getClassesWithAnnotation(Verticle.class);
-        log.info("Found Verticles: {}", foundVerticleClasses.size());
         if (foundVerticleClasses.isEmpty())
         {
             //use and configure everything
@@ -66,11 +62,10 @@ public class VerticleBuilder
 
             map.forEach((key, value) -> {
                 log.info("Deploying Global Verticle: {} - global-worker-pool", key);
-                var verticalFuture = vertx.deployVerticle(value, new DeploymentOptions());
+                var verticalFuture = VertXPreStartup.getVertx().deployVerticle(value, new DeploymentOptions());
                 verticleFutures.put(key, verticalFuture);
             });
         }
-
         for (ClassInfo classInfo : foundVerticleClasses)
         {
             var annotation = classInfo.loadClass().getDeclaredAnnotation(Verticle.class);
@@ -97,7 +92,7 @@ public class VerticleBuilder
 
             map.forEach((key, value) -> {
                 log.info("Deploying Verticle: {} - {}", key, annotation.workerPoolName());
-                var verticalFuture = vertx.deployVerticle(value, toDeploymentOptions(annotation));
+                var verticalFuture = VertXPreStartup.getVertx().deployVerticle(value, toDeploymentOptions(annotation));
                 verticleFutures.put(key, verticalFuture);
             });
         }

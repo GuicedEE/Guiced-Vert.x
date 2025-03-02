@@ -10,6 +10,7 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.Getter;
 import lombok.extern.java.Log;
+import lombok.extern.log4j.Log4j2;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
 
 @Getter
 @Singleton
-@Log
+@Log4j2
 public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IGuicePreDestroy<VertXPostStartup>
 {
 
@@ -36,10 +37,10 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
             var verticlePackages = verticleBuilder.findVerticles();
             if (!verticlePackages.isEmpty() && verticlePackages.keySet().stream().noneMatch(String::isEmpty))
             {
-                log.info("Found Verticles. Deploying [" + verticlePackages.size() + "] verticles...");
+                log.info("Found Verticles. Deploying [{}] verticles...", verticlePackages.size());
                 List<Future<?>> futures = new ArrayList<>();
                 verticlePackages.forEach((key, value) -> {
-                    log.info("Deploying Verticle: " + key + " - " + value.getClass().getSimpleName());
+                    log.info("Deploying Verticle: {} - {}", key, value.getClass().getSimpleName());
                     futures.add(vertx.deployVerticle(value));
                 });
                 Future.all(futures).onComplete(ar -> {
