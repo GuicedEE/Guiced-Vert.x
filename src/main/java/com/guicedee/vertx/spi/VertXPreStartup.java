@@ -5,6 +5,7 @@ import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
 import com.guicedee.guicedinjection.interfaces.IGuicePreStartup;
 import com.guicedee.services.jsonrepresentation.IJsonRepresentation;
 import io.vertx.core.Future;
+import io.vertx.core.Verticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxBuilder;
 import io.vertx.core.VertxOptions;
@@ -13,6 +14,8 @@ import jakarta.inject.Singleton;
 import lombok.Getter;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.ServiceLoader;
 
 @Singleton
@@ -20,6 +23,17 @@ import java.util.ServiceLoader;
 public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuicePreDestroy<VertXPreStartup>
 {
     private static Vertx vertx;
+
+    public static Optional<io.vertx.core.Verticle> getAssociatedVerticle(Class<?> clazz) {
+        String packageName = clazz.getPackageName(); // Get package name of the class
+        Map<String, Verticle> verticlePackages = VerticleBuilder.getVerticlePackages(); // Map of package prefixes to Verticles
+        // Find a matching verticle for the class's package
+        return verticlePackages.entrySet().stream()
+                .filter(entry -> packageName.startsWith(entry.getKey())) // Match based on package prefix
+                .map(Map.Entry::getValue) // Extract the associated Verticle
+                .findFirst(); // Return the first match if found
+    }
+
 
     @Override
     public List<Future<Boolean>> onStartup() {
