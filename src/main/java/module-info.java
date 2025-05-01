@@ -6,7 +6,6 @@ import com.guicedee.guicedinjection.interfaces.*;
 
 module com.guicedee.vertx {
     requires transitive io.vertx.core;
-    requires transitive io.vertx.web;
 
     requires transitive com.guicedee.client;
     requires transitive com.guicedee.jsonrepresentation;

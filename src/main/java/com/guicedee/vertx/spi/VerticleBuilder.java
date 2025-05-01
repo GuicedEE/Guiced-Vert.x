@@ -66,35 +66,41 @@ public class VerticleBuilder
                 verticleFutures.put(key, verticalFuture);
             });
         }
-        for (ClassInfo classInfo : foundVerticleClasses)
+        else
         {
-            var annotation = classInfo.loadClass().getDeclaredAnnotation(Verticle.class);
-            log.info("Found Verticle: {} - {}", classInfo.getPackageName(), classInfo.getSimpleName());
-            List<String> packageNames = getAppliedPackageNames(classInfo, annotation);
-
-            map.put(classInfo.getPackageName(), new AbstractVerticle()
+            for (ClassInfo classInfo : foundVerticleClasses)
             {
-                @Override
-                public void start(Promise<Void> startPromise) throws Exception
-                {
-                    @SuppressWarnings("rawtypes")
-                    ServiceLoader<VerticleStartup> startups = ServiceLoader.load(VerticleStartup.class);
-                    startups.stream().map(ServiceLoader.Provider::get)
-                            .filter(a -> packageNames.stream()
-                                    .anyMatch(pkg -> a.getClass().getPackage().getName().startsWith(pkg)))
-                            .forEachOrdered(entry -> {
-                                //noinspection unchecked
-                                entry.start(startPromise, vertx, this, classInfo.getPackageName());
-                            });
-                    super.start(startPromise);
-                }
-            });
+                var annotation = classInfo.loadClass().getDeclaredAnnotation(Verticle.class);
+                log.info("Found Verticle: {} - {}", classInfo.getPackageName(), classInfo.getSimpleName());
+                List<String> packageNames = getAppliedPackageNames(classInfo, annotation);
 
-            map.forEach((key, value) -> {
-                log.info("Deploying Verticle: {} - {}", key, annotation.workerPoolName());
-                var verticalFuture = VertXPreStartup.getVertx().deployVerticle(value, toDeploymentOptions(annotation));
-                verticleFutures.put(key, verticalFuture);
-            });
+                map.put(classInfo.getPackageName(), new AbstractVerticle()
+                {
+                    @Override
+                    public void start(Promise<Void> startPromise) throws Exception
+                    {
+                        @SuppressWarnings("rawtypes")
+                        ServiceLoader<VerticleStartup> startups = ServiceLoader.load(VerticleStartup.class);
+                        startups.stream().map(ServiceLoader.Provider::get)
+                                .filter(a -> packageNames.stream()
+                                        .anyMatch(pkg -> a.getClass().getPackage().getName().startsWith(pkg)))
+                                .forEachOrdered(entry -> {
+                                    //noinspection unchecked
+
+
+
+                                    entry.start(startPromise, vertx, this, classInfo.getPackageName());
+                                });
+                        super.start(startPromise);
+                    }
+                });
+
+                map.forEach((key, value) -> {
+                    log.info("Deploying Verticle: {} - {}", key, annotation.workerPoolName());
+                    var verticalFuture = VertXPreStartup.getVertx().deployVerticle(value, toDeploymentOptions(annotation));
+                    verticleFutures.put(key, verticalFuture);
+                });
+            }
         }
         verticlePackages.putAll(map);
         return map;
@@ -110,7 +116,8 @@ public class VerticleBuilder
             {
                 packageNames.add(value.getPackageName());
             }
-        } else
+        }
+        else
         {
             for (Verticle.Capabilities capability : annotation.capabilities())
             {

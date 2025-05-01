@@ -2,6 +2,7 @@ package com.guicedee.vertx;
 
 import com.guicedee.guicedinjection.interfaces.IGuicePostStartup;
 import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
+import com.guicedee.vertx.spi.VertXPreStartup;
 import com.guicedee.vertx.spi.VerticleBuilder;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -59,7 +60,14 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
     @Override
     public void onDestroy()
     {
-        vertx.close();
+        if (this.vertx != null)
+        {
+            vertx.close();
+        }
+        if (VertXPreStartup.getVertx() != null)
+        {
+            VertXPreStartup.getVertx().close();
+        }
     }
 
     @Override
