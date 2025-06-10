@@ -51,6 +51,10 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
 
             // Build the Vertx instance
             vertx = builder.build();
+
+            // Initialize the VertxEventRegistry
+            VertxEventRegistry.scanAndRegisterEvents();
+            VertxEventRegistry.registerEventConsumers();
         }
         return List.of(Future.succeededFuture(true));
     }
