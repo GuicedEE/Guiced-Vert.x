@@ -56,6 +56,25 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>io.smallrye.reactive</groupId>
+            <artifactId>mutiny</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.guicedee.services</groupId>
+            <artifactId>vertx-mutiny</artifactId>
+        </dependency>
+<!--
+
+        <dependency>
+            <groupId>io.smallrye.reactive</groupId>
+            <artifactId>mutiny-smallrye-context-propagation</artifactId>
+        </dependency>
+-->
+
+
+
+
     </dependencies>
 
 

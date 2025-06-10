@@ -1,1 +1,2 @@
 com.guicedee.vertx.VertXPostStartup
+com.guicedee.vertx.VertXVerticalPreStartup

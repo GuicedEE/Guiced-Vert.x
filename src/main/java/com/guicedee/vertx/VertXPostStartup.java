@@ -1,21 +1,17 @@
 package com.guicedee.vertx;
 
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
 import com.guicedee.guicedinjection.interfaces.IGuicePostStartup;
 import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
 import com.guicedee.vertx.spi.VertXPreStartup;
 import com.guicedee.vertx.spi.VerticleBuilder;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 import lombok.Getter;
-import lombok.extern.java.Log;
 import lombok.extern.log4j.Log4j2;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 @Getter
 @Singleton
@@ -28,6 +24,9 @@ public class VertXPostStartup implements IGuicePostStartup<VertXPostStartup>, IG
 
     @Inject
     private VerticleBuilder verticleBuilder;
+
+    @Inject
+    private GuicedVertxContextPropagationHandler propagationHandler;
 
     @Override
     public List<Future<Boolean>> postLoad()

@@ -5,12 +5,12 @@ import com.guicedee.client.IGuiceContext;
 import io.github.classgraph.ClassInfo;
 import io.github.classgraph.ClassInfoList;
 import io.vertx.core.*;
-import jakarta.inject.Inject;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Log4j2
 public class VerticleBuilder
@@ -38,6 +38,7 @@ public class VerticleBuilder
         Map<String, io.vertx.core.Verticle> map = new HashMap<>();
         var scanResult = IGuiceContext.instance().getScanResult();
         ClassInfoList foundVerticleClasses = scanResult.getClassesWithAnnotation(Verticle.class);
+        Map<ClassInfo, Boolean> classLoaded = new HashMap<>();
         if (foundVerticleClasses.isEmpty())
         {
             //use and configure everything
@@ -56,7 +57,7 @@ public class VerticleBuilder
                                 //noinspection unchecked
                                 entry.start(startPromise, vertx, this, "");
                             });
-                    super.start(startPromise);
+                    //super.start(startPromise);
                 }
             });
 
@@ -79,6 +80,13 @@ public class VerticleBuilder
                     @Override
                     public void start(Promise<Void> startPromise) throws Exception
                     {
+
+                        if(!classLoaded.containsKey(classInfo))
+                        {
+                            classLoaded.put(classInfo, true);
+                        }else {
+                            return;
+                        }
                         @SuppressWarnings("rawtypes")
                         ServiceLoader<VerticleStartup> startups = ServiceLoader.load(VerticleStartup.class);
                         startups.stream().map(ServiceLoader.Provider::get)
@@ -86,14 +94,12 @@ public class VerticleBuilder
                                         .anyMatch(pkg -> a.getClass().getPackage().getName().startsWith(pkg)))
                                 .forEachOrdered(entry -> {
                                     //noinspection unchecked
-
-
-
                                     entry.start(startPromise, vertx, this, classInfo.getPackageName());
                                 });
-                        super.start(startPromise);
+                        //super.start(startPromise);
                     }
                 });
+
 
                 map.forEach((key, value) -> {
                     log.info("Deploying Verticle: {} - {}", key, annotation.workerPoolName());

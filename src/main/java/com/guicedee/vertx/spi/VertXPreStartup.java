@@ -10,7 +10,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.VertxBuilder;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.json.jackson.DatabindCodec;
-import jakarta.inject.Singleton;
+
 import lombok.Getter;
 
 import java.util.List;
@@ -18,7 +18,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
 
-@Singleton
 @Getter
 public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuicePreDestroy<VertXPreStartup>
 {

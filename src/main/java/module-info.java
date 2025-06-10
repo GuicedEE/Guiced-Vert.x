@@ -16,14 +16,20 @@ module com.guicedee.vertx {
     requires transitive com.fasterxml.jackson.annotation;
     requires transitive com.fasterxml.jackson.core;
 
+    requires transitive io.smallrye.mutiny;
+    requires transitive io.vertx.mutiny;
+
+    requires jakarta.cdi;
+
+
     requires static lombok;
     exports com.guicedee.vertx.spi;
 
     opens com.guicedee.vertx to com.google.guice;
     opens com.guicedee.vertx.spi to com.google.guice;
 
-    provides IGuicePreStartup with VertXPreStartup,VertXVerticalPreStartup;
-    provides IGuicePostStartup with VertXPostStartup;
+    provides IGuicePreStartup with VertXPreStartup;
+    provides IGuicePostStartup with VertXPostStartup,VertXVerticalPreStartup;
     provides IGuicePreDestroy with VertXPostStartup;
     provides IGuiceModule with VertXModule;
 

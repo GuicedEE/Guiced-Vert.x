@@ -1,22 +1,22 @@
 package com.guicedee.vertx;
 
+import com.guicedee.guicedinjection.interfaces.IGuicePostStartup;
 import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
 import com.guicedee.guicedinjection.interfaces.IGuicePreStartup;
 import com.guicedee.vertx.spi.VertXPreStartup;
 import com.guicedee.vertx.spi.VerticleBuilder;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import jakarta.inject.Singleton;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
 import java.util.ArrayList;
 import java.util.List;
 
+
 @Getter
-@Singleton
 @Log4j2
-public class VertXVerticalPreStartup implements IGuicePreStartup<VertXVerticalPreStartup>, IGuicePreDestroy<VertXVerticalPreStartup>
+public class VertXVerticalPreStartup implements IGuicePostStartup<VertXVerticalPreStartup>, IGuicePreDestroy<VertXVerticalPreStartup>
 {
     private final VerticleBuilder verticleBuilder = new VerticleBuilder();
 
@@ -27,7 +27,7 @@ public class VertXVerticalPreStartup implements IGuicePreStartup<VertXVerticalPr
     }
 
     @Override
-    public List<Future<Boolean>> onStartup()
+    public List<Future<Boolean>> postLoad()
     {
         Promise<Boolean> promise = Promise.promise();
         VertXPreStartup.getVertx().executeBlocking(() -> {
@@ -39,7 +39,7 @@ public class VertXVerticalPreStartup implements IGuicePreStartup<VertXVerticalPr
                 List<Future<?>> futures = new ArrayList<>();
                 verticlePackages.forEach((key, value) -> {
                     log.info("Deploying Verticle: {} - {}", key, value.getClass().getSimpleName());
-                    futures.add(VertXPreStartup.getVertx().deployVerticle(value));
+               //     futures.add(VertXPreStartup.getVertx().deployVerticle(value));
                 });
                 Future.all(futures).onComplete(ar -> {
                             promise.complete();
@@ -54,6 +54,7 @@ public class VertXVerticalPreStartup implements IGuicePreStartup<VertXVerticalPr
 
         return List.of(promise.future());
     }
+
 
     @Override
     public Integer sortOrder()
