@@ -51,6 +51,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-codegen</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
@@ -60,20 +66,11 @@
             <groupId>io.smallrye.reactive</groupId>
             <artifactId>mutiny</artifactId>
         </dependency>
+
         <dependency>
             <groupId>com.guicedee.services</groupId>
             <artifactId>vertx-mutiny</artifactId>
         </dependency>
-<!--
-
-        <dependency>
-            <groupId>io.smallrye.reactive</groupId>
-            <artifactId>mutiny-smallrye-context-propagation</artifactId>
-        </dependency>
--->
-
-
-
 
     </dependencies>
 
@@ -112,6 +109,10 @@
                         </annotationProcessor>
                     </annotationProcessors>
                     <failOnError>true</failOnError>
+                    <compilerArgs>
+                        <arg>--add-exports</arg>
+                        <arg>io.vertx.core/io.vertx.core.impl=com.guicedee.vertx</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
         </plugins>

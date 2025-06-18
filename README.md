@@ -50,6 +50,47 @@ Method-based consumers support:
 - Different return types: `void`, direct values, `Future`, `CompletableFuture`
 - Different parameter types: message body directly or `Message<T>` object
 - Vertx context is automatically available during method execution
+- Automatic JSON conversion for custom object types (see below)
+
+#### JSON Conversion for Custom Object Types
+
+When a method parameter is not a default Vertx published type (String, Object, JsonObject, etc.) and the event received is a JsonObject, GuicedVertx will automatically convert the JsonObject to an instance of the expected type:
+
+```java
+public class MyData {
+    private String name;
+    private int age;
+    private boolean active;
+
+    // Getters and setters...
+}
+
+public class MyConsumer {
+    @VertxEventDefinition("my.data.event")
+    public void handleData(MyData data) {
+        System.out.println("Received data: " + data.getName());
+    }
+
+    @VertxEventDefinition("my.data.message.event")
+    public void handleDataMessage(Message<MyData> message) {
+        MyData data = message.body();
+        System.out.println("Received data via message: " + data.getName());
+    }
+}
+```
+
+When publishing to these consumers, you can send a JsonObject:
+
+```java
+JsonObject jsonObject = new JsonObject()
+    .put("name", "Test User")
+    .put("age", 30)
+    .put("active", true);
+
+vertx.eventBus().publish("my.data.event", jsonObject);
+```
+
+The conversion is handled automatically using Jackson via the `IJsonRepresentation.getObjectMapper()` method.
 
 #### Interface-Based Consumers (Legacy)
 
@@ -126,3 +167,4 @@ See the test classes for examples of how to use the event bus consumer and publi
 ### Method-Based Consumers
 - `MethodBasedConsumerTest`: Example of method-based consumers with different return types and parameter types
 - `MethodBasedPublisherTest`: Example of publishing messages to method-based consumers
+- `JsonConversionTest`: Example of JSON conversion for custom object types

@@ -1,6 +1,7 @@
 package com.guicedee.vertx;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.guicedee.services.jsonrepresentation.IJsonRepresentation;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.DeliveryOptions;
@@ -32,7 +33,13 @@ public class VertxEventPublisher<T> {
      */
     public void publish(T message) {
         log.trace("Publishing message to address {} - {}", address, message);
-        vertx.eventBus().publish(address, message);
+        try {
+            String jsonMessage = IJsonRepresentation.getObjectMapper().writeValueAsString(message);
+            vertx.eventBus().publish(address, jsonMessage);
+        } catch (Exception e) {
+            log.error("Error serializing message to JSON", e);
+            throw new RuntimeException("Error publishing message", e);
+        }
     }
 
     /**
@@ -43,8 +50,25 @@ public class VertxEventPublisher<T> {
      */
     public <R> Future<R> send(T message) {
         log.trace("Sending message to address {} - {}", address, message);
-        return vertx.eventBus().request(address, message)
-                .map(reply -> (R) reply.body());
+        try {
+            String jsonMessage = IJsonRepresentation.getObjectMapper().writeValueAsString(message);
+            return vertx.eventBus().request(address, jsonMessage)
+                    .map(reply -> {
+                        Object body = reply.body();
+                        if (body instanceof String) {
+                            try {
+                                return (R) IJsonRepresentation.getObjectMapper().readValue((String) body, Object.class);
+                            } catch (Exception e) {
+                                log.warn("Could not deserialize reply, returning raw body", e);
+                                return (R) body;
+                            }
+                        }
+                        return (R) body;
+                    });
+        } catch (Exception e) {
+            log.error("Error serializing message to JSON", e);
+            return Future.failedFuture(e);
+        }
     }
 
     /**
@@ -55,7 +79,13 @@ public class VertxEventPublisher<T> {
      */
     public void publish(T message, DeliveryOptions options) {
         log.trace("Publishing message to address {} with options - {}", address, message);
-        vertx.eventBus().publish(address, message, options);
+        try {
+            String jsonMessage = IJsonRepresentation.getObjectMapper().writeValueAsString(message);
+            vertx.eventBus().publish(address, jsonMessage, options);
+        } catch (Exception e) {
+            log.error("Error serializing message to JSON", e);
+            throw new RuntimeException("Error publishing message with options", e);
+        }
     }
 
     /**
@@ -67,7 +97,24 @@ public class VertxEventPublisher<T> {
      */
     public <R> Future<R> send(T message, DeliveryOptions options) {
         log.trace("Sending message to address {} with options - {}", address, message);
-        return vertx.eventBus().request(address, message, options)
-                .map(reply -> (R) reply.body());
+        try {
+            String jsonMessage = IJsonRepresentation.getObjectMapper().writeValueAsString(message);
+            return vertx.eventBus().request(address, jsonMessage, options)
+                    .map(reply -> {
+                        Object body = reply.body();
+                        if (body instanceof String) {
+                            try {
+                                return (R) IJsonRepresentation.getObjectMapper().readValue((String) body, Object.class);
+                            } catch (Exception e) {
+                                log.warn("Could not deserialize reply, returning raw body", e);
+                                return (R) body;
+                            }
+                        }
+                        return (R) body;
+                    });
+        } catch (Exception e) {
+            log.error("Error serializing message to JSON", e);
+            return Future.failedFuture(e);
+        }
     }
 }

@@ -164,7 +164,6 @@ public class VerticleBuilder
         {
             d.setMaxWorkerExecuteTimeUnit(vertical.maxWorkerExecuteTimeUnit());
         }
-
         return d;
     }
 

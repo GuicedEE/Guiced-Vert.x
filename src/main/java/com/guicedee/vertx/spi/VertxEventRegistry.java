@@ -1,6 +1,10 @@
 package com.guicedee.vertx.spi;
 
+import com.google.inject.Key;
+import com.google.inject.TypeLiteral;
+import com.google.inject.name.Names;
 import com.guicedee.client.IGuiceContext;
+import com.guicedee.services.jsonrepresentation.IJsonRepresentation;
 import com.guicedee.vertx.VertxConsumer;
 import com.guicedee.vertx.VertxEventDefinition;
 import com.guicedee.vertx.VertxEventOptions;
@@ -9,13 +13,13 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
+import java.lang.reflect.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -35,12 +39,14 @@ public class VertxEventRegistry {
     @Getter
     private static final Map<String, VertxEventDefinition> eventPublisherDefinitions = new HashMap<>();
 
-    // New data structures for method-based consumers
     @Getter
     private static final Map<String, Method> eventConsumerMethods = new HashMap<>();
 
     @Getter
     private static final Map<String, Class<?>> eventConsumerMethodClasses = new HashMap<>();
+
+    @Getter
+    private static Map<String, Key<?>> eventPublisherKeys = new HashMap<>();
 
     /**
      * Scans for classes with @VertxEventDefinition annotation and registers them
@@ -52,6 +58,7 @@ public class VertxEventRegistry {
         var consumerClasses = IGuiceContext.instance().getScanResult()
                 .getClassesImplementing(VertxConsumer.class.getName())
                 .stream()
+                .filter(classInfo -> !classInfo.isInterfaceOrAnnotation() && !classInfo.isAbstract())
                 .filter(info -> info.hasAnnotation(VertxEventDefinition.class))
                 .toList();
 
@@ -61,7 +68,7 @@ public class VertxEventRegistry {
                 VertxEventDefinition eventDefinition = (VertxEventDefinition) consumerClass.getAnnotation(VertxEventDefinition.class);
                 String address = eventDefinition.value();
 
-                log.info("Registering Vertx event consumer for address: {}", address);
+                log.debug("Registering Vertx event consumer for address: {}", address);
                 eventConsumerDefinitions.put(address, eventDefinition);
                 eventConsumerClass.put(address, consumerClass);
             } catch (Exception e) {
@@ -72,6 +79,7 @@ public class VertxEventRegistry {
         // Scan for methods annotated with @VertxEventDefinition
         var methodConsumerClasses = IGuiceContext.instance().getScanResult()
                 .getClassesWithMethodAnnotation(VertxEventDefinition.class)
+                .filter(classInfo -> !classInfo.isInterfaceOrAnnotation() && !classInfo.isAbstract())
                 .stream()
                 .toList();
 
@@ -83,7 +91,7 @@ public class VertxEventRegistry {
                     if (eventDefinition != null) {
                         String address = eventDefinition.value();
 
-                        log.info("Registering Vertx event consumer method for address: {}", address);
+                        log.debug("Registering Vertx event consumer method for address: {}", address);
                         eventConsumerDefinitions.put(address, eventDefinition);
                         eventConsumerMethods.put(address, method);
                         eventConsumerMethodClasses.put(address, clazz);
@@ -98,8 +106,8 @@ public class VertxEventRegistry {
         var publisherClasses = IGuiceContext.instance().getScanResult()
                 .getAllClasses()
                 .stream()
-                .filter(info -> info.hasDeclaredFieldAnnotation(VertxEventDefinition.class) || 
-                               info.hasDeclaredFieldAnnotation(com.google.inject.name.Named.class))
+                .filter(info -> info.hasDeclaredFieldAnnotation(VertxEventDefinition.class) ||
+                        info.hasDeclaredFieldAnnotation(com.google.inject.name.Named.class))
                 .toList();
 
         for (var classInfo : publisherClasses) {
@@ -114,7 +122,7 @@ public class VertxEventRegistry {
                         // If @VertxEventDefinition is present, use its value as address
                         if (eventDefinition != null) {
                             address = eventDefinition.value();
-                        } 
+                        }
                         // Otherwise, check for @Named annotation
                         else {
                             com.google.inject.name.Named named = field.getAnnotation(com.google.inject.name.Named.class);
@@ -126,8 +134,41 @@ public class VertxEventRegistry {
                         }
 
                         if (address != null) {
-                            log.info("Registering Vertx event publisher for address: {}", address);
-                            eventPublisherDefinitions.put(address, eventDefinition);
+                            if (!eventPublisherKeys.containsKey(address)) {
+                                log.debug("Registering Vertx event publisher for address: {}", address);
+                                eventPublisherDefinitions.put(address, eventDefinition);
+                                // Extract the generic type parameter
+                                Type genericType = field.getGenericType();
+                                eventPublisherKeys.put(address, createGuiceKey(genericType, address));
+                            }
+                            /*
+                            if (genericType instanceof ParameterizedType) {
+                                ParameterizedType paramType = (ParameterizedType) genericType;
+                                Type[] typeArguments = paramType.getActualTypeArguments();
+                                if (typeArguments.length > 0) {
+                                    Type typeArg = typeArguments[0];
+
+                                    // Create TypeLiteral for complex generic types
+                                    TypeLiteral<?> typeLiteral = createTypeLiteral(typeArg);
+                                    Class<?> rawType = getRawType(typeArg);
+
+                                    log.info("Found generic type {} (raw: {}) for publisher at address: {}",
+                                            typeArg.getTypeName(), rawType.getName(), address);
+
+                                    // Store both the TypeLiteral for Guice binding and raw type for convenience
+                                    eventPublisherTypeLiterals.put(address, typeLiteral);
+                                    eventPublisherGenericTypes.put(address, rawType);
+                                    eventPublisherKeys.put(address, createGuiceKey(typeArg,address));
+                                } else {
+                                    log.warn("No type arguments found for publisher at address: {}", address);
+                                    eventPublisherGenericTypes.put(address, Object.class);
+                                    eventPublisherTypeLiterals.put(address, TypeLiteral.get(Object.class));
+                                }
+                            } else {
+                                log.warn("No generic type information found for publisher at address: {}", address);
+                                eventPublisherGenericTypes.put(address, Object.class);
+                                eventPublisherTypeLiterals.put(address, TypeLiteral.get(Object.class));
+                            }*/
                         }
                     }
                 }
@@ -146,7 +187,7 @@ public class VertxEventRegistry {
         // Register interface-based consumers
         eventConsumerDefinitions.forEach((address, eventDefinition) -> {
             if (eventDefinition.options().autobind() && eventConsumerClass.containsKey(address)) {
-                log.info("Registering interface-based event consumer for address: {}", address);
+                log.debug("Registering interface-based event consumer for address: {}", address);
 
                 for (int i = 0; i < eventDefinition.options().consumerCount(); i++) {
                     if (eventDefinition.options().localOnly()) {
@@ -179,7 +220,7 @@ public class VertxEventRegistry {
         // Register method-based consumers
         eventConsumerDefinitions.forEach((address, eventDefinition) -> {
             if (eventDefinition.options().autobind() && eventConsumerMethods.containsKey(address)) {
-                log.info("Registering method-based event consumer for address: {}", address);
+                log.debug("Registering method-based event consumer for address: {}", address);
                 Method method = eventConsumerMethods.get(address);
                 Class<?> methodClass = eventConsumerMethodClasses.get(address);
 
@@ -229,6 +270,8 @@ public class VertxEventRegistry {
                         throw new RuntimeException(e);
                     }
                 }, false);
+            } else {
+                log.error("No Vertx context found, cannot invoke method-based consumer - {}.{}()", methodClass.getSimpleName(), method.getName());
             }
         } catch (Exception e) {
             log.error("Error processing event message", e);
@@ -251,12 +294,43 @@ public class VertxEventRegistry {
                 // Pass the Message object
                 params[i] = message;
             } else {
-                // Pass the message body
-                params[i] = message.body();
+                Object body = message.body();
+
+                // Check if the body is a JsonObject and the parameter type is not a default Vertx type
+                if (body instanceof JsonObject &&
+                        !isDefaultVertxType(paramType)) {
+                    try {
+                        // Convert JsonObject to the expected parameter type using Jackson
+                        JsonObject jsonObject = (JsonObject) body;
+                        params[i] = IJsonRepresentation.getObjectMapper()
+                                .readValue(jsonObject.encode(), paramType);
+                        log.debug("Converted JsonObject to {}: {}", paramType.getName(), params[i]);
+                    } catch (Exception e) {
+                        log.error("Error converting JsonObject to " + paramType.getName(), e);
+                        params[i] = body;
+                    }
+                } else {
+                    // Pass the message body directly
+                    params[i] = body;
+                }
             }
         }
 
         return params;
+    }
+
+    /**
+     * Checks if a type is a default Vertx published type
+     */
+    private static boolean isDefaultVertxType(Class<?> type) {
+        return type.equals(String.class) ||
+                type.equals(Object.class) ||
+                type.equals(JsonObject.class) ||
+                type.equals(JsonArray.class) ||
+                type.isPrimitive() ||
+                Number.class.isAssignableFrom(type) ||
+                Boolean.class.equals(type) ||
+                Character.class.equals(type);
     }
 
     /**
@@ -294,7 +368,7 @@ public class VertxEventRegistry {
 
     /**
      * Creates a default VertxEventDefinition for fields with only @Named annotation
-     * 
+     *
      * @param address The address from the @Named annotation
      * @return A default VertxEventDefinition
      */
@@ -335,5 +409,66 @@ public class VertxEventRegistry {
                 return VertxEventDefinition.class;
             }
         };
+    }
+
+    /**
+     * Creates a TypeLiteral from a Type, handling complex generic types
+     */
+    @SuppressWarnings("unchecked")
+    private static TypeLiteral<?> createTypeLiteral(Type type) {
+        return (TypeLiteral<?>) TypeLiteral.get(type);
+    }
+
+    /**
+     * Extracts the raw type from any Type, including parameterized types
+     */
+    private static Class<?> getRawType(Type type) {
+        if (type instanceof Class) {
+            return (Class<?>) type;
+        } else if (type instanceof ParameterizedType) {
+            ParameterizedType paramType = (ParameterizedType) type;
+            return (Class<?>) paramType.getRawType();
+        } else if (type instanceof GenericArrayType) {
+            GenericArrayType arrayType = (GenericArrayType) type;
+            Class<?> componentClass = getRawType(arrayType.getGenericComponentType());
+            return Array.newInstance(componentClass, 0).getClass();
+        } else if (type instanceof WildcardType) {
+            WildcardType wildcardType = (WildcardType) type;
+            Type[] upperBounds = wildcardType.getUpperBounds();
+            if (upperBounds.length > 0) {
+                return getRawType(upperBounds[0]);
+            }
+            return Object.class;
+        } else if (type instanceof TypeVariable) {
+            TypeVariable<?> typeVar = (TypeVariable<?>) type;
+            Type[] bounds = typeVar.getBounds();
+            if (bounds.length > 0) {
+                return getRawType(bounds[0]);
+            }
+            return Object.class;
+        }
+
+        // Fallback for any other type
+        log.warn("Unknown type encountered: {}, defaulting to Object", type.getClass().getName());
+        return Object.class;
+    }
+
+    /**
+     * Alternative approach: Create a proper Key for Guice binding with full type information
+     */
+    private static Key<?> createGuiceKey(Type type, String address) {
+        try {
+            if (type instanceof Class) {
+                return Key.get((Class<?>) type, Names.named(address));
+            } else {
+                // For complex generic types, use TypeLiteral
+                TypeLiteral<?> typeLiteral = TypeLiteral.get(type);
+                return Key.get(typeLiteral, Names.named(address));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to create Guice key for type {} at address {}: {}",
+                    type.getTypeName(), address, e.getMessage());
+            return Key.get(Object.class, Names.named(address));
+        }
     }
 }
