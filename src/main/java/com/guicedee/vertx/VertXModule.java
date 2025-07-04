@@ -25,54 +25,6 @@ public class VertXModule extends PrivateModule implements IGuiceModule<VertXModu
     // Set to track which addresses have already been bound
     private static final Set<String> boundAddresses = new HashSet<>();
 
-    /**
-     * Creates a TypeLiteral for VertxEventPublisher with the specified generic type
-     * 
-     * @param genericType The generic type to use
-     * @return A TypeLiteral for VertxEventPublisher with the specified generic type
-     */
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private <T> TypeLiteral<VertxEventPublisher<T>> createTypeLiteral(Class<T> genericType) {
-        try {
-            // Create a parameterized type for VertxEventPublisher<T>
-            ParameterizedTypeImpl type = new ParameterizedTypeImpl(VertxEventPublisher.class, new Type[]{genericType});
-
-            // Create a TypeLiteral with the parameterized type
-            return (TypeLiteral<VertxEventPublisher<T>>) TypeLiteral.get(type);
-        } catch (Exception e) {
-            log.error("Error creating TypeLiteral for generic type {}", genericType.getName(), e);
-            // Fall back to Object if there's an error
-            return (TypeLiteral) TypeLiteral.get(VertxEventPublisher.class);
-        }
-    }
-
-    /**
-     * Implementation of ParameterizedType for creating TypeLiterals with dynamic generic types
-     */
-    private static class ParameterizedTypeImpl implements ParameterizedType {
-        private final Type rawType;
-        private final Type[] actualTypeArguments;
-
-        public ParameterizedTypeImpl(Type rawType, Type[] actualTypeArguments) {
-            this.rawType = rawType;
-            this.actualTypeArguments = actualTypeArguments;
-        }
-
-        @Override
-        public Type[] getActualTypeArguments() {
-            return actualTypeArguments;
-        }
-
-        @Override
-        public Type getRawType() {
-            return rawType;
-        }
-
-        @Override
-        public Type getOwnerType() {
-            return null;
-        }
-    }
     @Override
     protected void configure()
     {
@@ -98,14 +50,14 @@ public class VertXModule extends PrivateModule implements IGuiceModule<VertXModu
                 bind(Key.get(clazz, Names.named(address)))
                         .to(clazz);
 
-                // Bind the VertxConsumer interface with the same named binding to the consumer class
+   /*             // Bind the VertxConsumer interface with the same named binding to the consumer class
                 bind(Key.get(VertxConsumer.class, Names.named(address)))
                         .to(clazz);
 
                 // Expose the bindings
                 expose(Key.get(clazz, Names.named(address)));
                 expose(Key.get(VertxConsumer.class, Names.named(address)));
-
+*/
                  log.debug("Binding interface-based VertxConsumer for address: {}", address);
             } else if (VertxEventRegistry.getEventConsumerClass().containsKey(address)) {
                 log.trace("Skipping already bound interface-based VertxConsumer for address: {}", address);
@@ -151,8 +103,18 @@ public class VertXModule extends PrivateModule implements IGuiceModule<VertXModu
                 @SuppressWarnings("unchecked")
                 Provider<VertxEventPublisher> publisherProvider = () -> {
                     Vertx vertx = VertXPreStartup.getVertx();
-                    // The VertxEventPublisher is created with the correct generic type
-                    return new VertxEventPublisher<>(vertx, address, eventDefinition);
+                    // Extract the type from the key
+                    Type referenceType = Object.class;
+                    if (gKey.getTypeLiteral() != null && gKey.getTypeLiteral().getType() instanceof ParameterizedType) {
+                        ParameterizedType paramType = (ParameterizedType) gKey.getTypeLiteral().getType();
+                        Type[] typeArgs = paramType.getActualTypeArguments();
+                        if (typeArgs.length > 0) {
+                            referenceType = typeArgs[0];
+                            log.debug("Using reference type {} for publisher at address: {}", referenceType.getTypeName(), address);
+                        }
+                    }
+                    // The VertxEventPublisher is created with the correct generic type and reference type
+                    return new VertxEventPublisher<>(vertx, address, eventDefinition, referenceType);
                 };
 
                 // Bind the generic key to the specific key

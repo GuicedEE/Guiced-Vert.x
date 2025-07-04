@@ -29,11 +29,11 @@ module com.guicedee.vertx {
     opens com.guicedee.vertx.spi to com.google.guice;
 
     provides IGuicePreStartup with VertXPreStartup;
-    provides IGuicePostStartup with VertXPostStartup,VertXVerticalPreStartup;
+    //provides IGuicePostStartup with VertXPostStartup;
     provides IGuicePreDestroy with VertXPostStartup;
     provides IGuiceModule with VertXModule;
     //provides io.vertx.core.spi.VertxThreadFactory with InterceptingThreadFactory;
-    provides io.vertx.core.spi.VertxThreadFactory with CallScopeAwareVertxThreadFactory;
+    //provides io.vertx.core.spi.VertxThreadFactory with CallScopeAwareVertxThreadFactory;
 
     uses com.guicedee.vertx.spi.VertxConfigurator;
     uses VerticleStartup;
