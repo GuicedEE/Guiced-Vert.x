@@ -68,7 +68,7 @@ public class VertXModule extends PrivateModule implements IGuiceModule<VertXModu
         VertxEventRegistry.getEventConsumerMethodClasses().forEach((address, clazz) -> {
             // Check if this method-based consumer hasn't been bound yet
             if (!boundAddresses.contains("method:" + address)) {
-                log.debug("Binding method-based consumer class for address: {}", address);
+                log.info("Binding method-based consumer class for address: {}", address);
 
                 // Mark this address as bound
                 boundAddresses.add("method:" + address);
@@ -91,7 +91,7 @@ public class VertXModule extends PrivateModule implements IGuiceModule<VertXModu
         VertxEventRegistry.getEventPublisherDefinitions().forEach((address, eventDefinition) -> {
             // Check if this publisher hasn't been bound yet
             if (!boundAddresses.contains("publisher:" + address)) {
-                log.debug("Binding VertxEventPublisher for address: {}", address);
+                log.info("Binding VertxEventPublisher for address: {}", address);
 
                 // Mark this address as bound
                 boundAddresses.add("publisher:" + address);

@@ -190,6 +190,8 @@ public class VertxEventRegistry {
                                 Type genericType = field.getGenericType();
                                 eventPublisherKeys.put(address, createGuiceKey(genericType, address));
                             }
+
+
                             /*
                             if (genericType instanceof ParameterizedType) {
                                 ParameterizedType paramType = (ParameterizedType) genericType;
