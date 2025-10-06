@@ -13,7 +13,6 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
 import java.lang.reflect.Type;
-import java.util.regex.Pattern;
 
 /**
  * Publisher for Vertx event bus messages
@@ -32,38 +31,6 @@ public class VertxEventPublisher<T> {
      */
     @Getter
     private final Type referenceType;
-
-    /**
-     * Pattern for converting camel case to kebab case
-     */
-    private static final Pattern CAMEL_CASE_PATTERN = Pattern.compile("([a-z])([A-Z])|([A-Z])([A-Z][a-z])");
-
-    /**
-     * Standard Vertx types that don't need custom codecs
-     */
-    private static final Class<?>[] STANDARD_VERTX_TYPES = {
-        String.class,
-        Boolean.class,
-        boolean.class,
-        Integer.class,
-        int.class,
-        Long.class,
-        long.class,
-        Double.class,
-        double.class,
-        Float.class,
-        float.class,
-        Short.class,
-        short.class,
-        Byte.class,
-        byte.class,
-        Character.class,
-        char.class,
-        JsonObject.class,
-        JsonArray.class,
-        Buffer.class,
-        byte[].class
-    };
 
     public VertxEventPublisher(Vertx vertx, String address, VertxEventDefinition eventDefinition) {
         this(vertx, address, eventDefinition, Object.class);
@@ -85,53 +52,7 @@ public class VertxEventPublisher<T> {
     }
 
     /**
-     * Checks if the given class is a standard Vertx type
-     *
-     * @param clazz The class to check
-     * @return true if the class is a standard Vertx type, false otherwise
-     */
-    private boolean isStandardVertxType(Class<?> clazz) {
-        if (clazz == null) {
-            return true;
-        }
-
-        for (Class<?> standardType : STANDARD_VERTX_TYPES) {
-            if (standardType.equals(clazz)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Converts a camel case string to kebab case
-     *
-     * @param camelCase The camel case string
-     * @return The kebab case string
-     */
-    private String toKebabCase(String camelCase) {
-        if (camelCase == null || camelCase.isEmpty()) {
-            return "";
-        }
-
-        // Replace camel case with kebab case (e.g., "camelCase" -> "camel-case")
-        // Also handle acronyms (e.g., "UWEServerMessage" -> "uwe-server-message")
-        String kebabCase = CAMEL_CASE_PATTERN.matcher(camelCase).replaceAll(match -> {
-            // Check which pattern matched
-            if (match.group(1) != null && match.group(2) != null) {
-                // First pattern: lowercase to uppercase
-                return match.group(1) + "-" + match.group(2);
-            } else {
-                // Second pattern: uppercase to uppercase followed by lowercase
-                return match.group(3) + "-" + match.group(4);
-            }
-        }).toLowerCase();
-        return kebabCase;
-    }
-
-    /**
-     * Gets the codec name for the given message
+     * Gets the codec name for the given message using the CodecRegistry
      *
      * @param message The message
      * @return The codec name, or null if it's a standard Vertx type
@@ -142,15 +63,7 @@ public class VertxEventPublisher<T> {
         }
 
         Class<?> messageClass = message.getClass();
-        if (isStandardVertxType(messageClass)) {
-            return null;
-        }
-
-        // Get the simple name of the class (without package)
-        String className = messageClass.getSimpleName();
-
-        // Convert to kebab case
-        return toKebabCase(className);
+        return com.guicedee.vertx.spi.CodecRegistry.getCodecName(messageClass);
     }
 
     /**

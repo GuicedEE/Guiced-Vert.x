@@ -11,6 +11,7 @@ import com.guicedee.services.jsonrepresentation.IJsonRepresentation;
 import com.guicedee.vertx.VertxEventDefinition;
 import com.guicedee.vertx.VertxEventOptions;
 import com.guicedee.vertx.VertxEventPublisher;
+import io.smallrye.mutiny.Uni;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
@@ -254,6 +255,8 @@ public class VertxEventRegistry {
                                 Class<?> consumerClass = eventConsumerClass.get(address);
                                 Object consumer = IGuiceContext.get(consumerClass);
 
+                                handleMethodBasedConsumer(message, consumerClass.getMethod("consume", Message.class), consumerClass);
+                                /*
                                 // Try to find and invoke the consume method
                                 try {
                                     Method consumeMethod = consumerClass.getMethod("consume", Message.class);
@@ -264,7 +267,7 @@ public class VertxEventRegistry {
                                 } catch (Exception e) {
                                     log.error("Error invoking consume method", e);
                                     message.fail(500, e.getMessage());
-                                }
+                                }*/
                             } catch (Exception e) {
                                 log.error("Error processing event message", e);
                                 message.fail(500, e.getMessage());
@@ -291,8 +294,10 @@ public class VertxEventRegistry {
                                 Class<?> consumerClass = eventConsumerClass.get(address);
                                 Object consumer = IGuiceContext.get(consumerClass);
 
+                                handleMethodBasedConsumer(message, consumerClass.getMethod("consume", Message.class), consumerClass);
+
                                 // Try to find and invoke the consume method
-                                try {
+                             /*   try {
                                     Method consumeMethod = consumerClass.getMethod("consume", Message.class);
                                     consumeMethod.invoke(consumer, message);
                                 } catch (NoSuchMethodException e) {
@@ -301,7 +306,7 @@ public class VertxEventRegistry {
                                 } catch (Exception e) {
                                     log.error("Error invoking consume method", e);
                                     message.fail(500, e.getMessage());
-                                }
+                                }*/
                             } catch (Exception e) {
                                 log.error("Error processing event message", e);
                                 message.fail(500, e.getMessage());
@@ -355,7 +360,7 @@ public class VertxEventRegistry {
 
             if (context != null) {
                 // Execute the method in a blocking context
-                context.executeBlocking(() -> {
+                context.runOnContext((_) -> {
                     try {
                         // Prepare method parameters
                         Object[] params = prepareMethodParameters(method, message);
@@ -371,7 +376,7 @@ public class VertxEventRegistry {
                         // Handle the result based on its type
                         handleMethodResult(result, message);
 
-                        return null;
+                        //return null;
                     } catch (Exception e) {
                         log.error("Error invoking method-based consumer", e);
                         message.fail(500, e.getMessage());
@@ -385,7 +390,7 @@ public class VertxEventRegistry {
                             }
                         }
                     }
-                }, false);
+                });
             } else {
                 log.error("No Vertx context found, cannot invoke method-based consumer - {}.{}()", methodClass.getSimpleName(), method.getName());
             }
@@ -490,6 +495,12 @@ public class VertxEventRegistry {
                     message.fail(500, ex.getMessage());
                 }
             });
+        } else if (result instanceof Uni) {
+            // Handle Uni result
+            ((Uni<?>) result).subscribe().with(
+                res -> message.reply(res),
+                ex -> message.fail(500, ex.getMessage())
+            );
         } else {
             // Handle direct result
             message.reply(result);

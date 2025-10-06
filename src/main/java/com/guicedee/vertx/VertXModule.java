@@ -58,7 +58,7 @@ public class VertXModule extends PrivateModule implements IGuiceModule<VertXModu
                 expose(Key.get(clazz, Names.named(address)));
                 expose(Key.get(VertxConsumer.class, Names.named(address)));
 */
-                 log.debug("Binding interface-based VertxConsumer for address: {}", address);
+                 log.trace("Binding interface-based VertxConsumer for address: {}", address);
             } else if (VertxEventRegistry.getEventConsumerClass().containsKey(address)) {
                 log.trace("Skipping already bound interface-based VertxConsumer for address: {}", address);
             }
@@ -68,7 +68,7 @@ public class VertXModule extends PrivateModule implements IGuiceModule<VertXModu
         VertxEventRegistry.getEventConsumerMethodClasses().forEach((address, clazz) -> {
             // Check if this method-based consumer hasn't been bound yet
             if (!boundAddresses.contains("method:" + address)) {
-                log.info("Binding method-based consumer class for address: {}", address);
+                log.debug("Binding method-based consumer class for address: {}", address);
 
                 // Mark this address as bound
                 boundAddresses.add("method:" + address);
@@ -91,7 +91,7 @@ public class VertXModule extends PrivateModule implements IGuiceModule<VertXModu
         VertxEventRegistry.getEventPublisherDefinitions().forEach((address, eventDefinition) -> {
             // Check if this publisher hasn't been bound yet
             if (!boundAddresses.contains("publisher:" + address)) {
-                log.info("Binding VertxEventPublisher for address: {}", address);
+                log.debug("Binding VertxEventPublisher for address: {}", address);
 
                 // Mark this address as bound
                 boundAddresses.add("publisher:" + address);
@@ -110,7 +110,7 @@ public class VertXModule extends PrivateModule implements IGuiceModule<VertXModu
                         Type[] typeArgs = paramType.getActualTypeArguments();
                         if (typeArgs.length > 0) {
                             referenceType = typeArgs[0];
-                            log.debug("Using reference type {} for publisher at address: {}", referenceType.getTypeName(), address);
+                            log.trace("Using reference type {} for publisher at address: {}", referenceType.getTypeName(), address);
                         }
                     }
                     // The VertxEventPublisher is created with the correct generic type and reference type

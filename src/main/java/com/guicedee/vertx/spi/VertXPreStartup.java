@@ -54,6 +54,11 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
 
             // Initialize the VertxEventRegistry
             VertxEventRegistry.scanAndRegisterEvents();
+            
+            // Register dynamic codecs for all event types
+            CodecRegistry.createAndRegisterCodecsForAllEventTypes(vertx);
+            
+            // Register event consumers
             VertxEventRegistry.registerEventConsumers();
         }
         return List.of(Future.succeededFuture(true));
