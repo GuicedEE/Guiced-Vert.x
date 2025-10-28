@@ -16,8 +16,10 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.WorkerExecutor;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
@@ -32,6 +34,8 @@ import java.util.concurrent.CompletableFuture;
  */
 @Log4j2
 public class VertxEventRegistry {
+
+    private static final java.util.concurrent.ConcurrentHashMap<String, WorkerExecutor> workerExecutors = new java.util.concurrent.ConcurrentHashMap<>();
 
     @Getter
     private static final Map<String, VertxEventDefinition> eventConsumerDefinitions = new HashMap<>();
@@ -241,86 +245,26 @@ public class VertxEventRegistry {
             if (eventDefinition.options().autobind() && eventConsumerClass.containsKey(address)) {
                 log.debug("Registering class-based event consumer for address: {}", address);
 
-                for (int i = 0; i < eventDefinition.options().consumerCount(); i++) {
-                    if (eventDefinition.options().localOnly()) {
-                        vertx.eventBus().localConsumer(address, message -> {
-                            CallScoper scoper = IGuiceContext.get(CallScoper.class);
-                            boolean scopeEntered = false;
-                            try {
-                                scoper.enter();
-                                CallScopeProperties csp = IGuiceContext.get(CallScopeProperties.class);
-                                csp.setSource(CallScopeSource.VertXConsumer);
-                                scopeEntered = true;
-
-                                Class<?> consumerClass = eventConsumerClass.get(address);
-                                Object consumer = IGuiceContext.get(consumerClass);
-
-                                handleMethodBasedConsumer(message, consumerClass.getMethod("consume", Message.class), consumerClass);
-                                /*
-                                // Try to find and invoke the consume method
-                                try {
-                                    Method consumeMethod = consumerClass.getMethod("consume", Message.class);
-                                    consumeMethod.invoke(consumer, message);
-                                } catch (NoSuchMethodException e) {
-                                    log.error("No consume method found for class {}", consumerClass.getName());
-                                    message.fail(500, "No consume method found");
-                                } catch (Exception e) {
-                                    log.error("Error invoking consume method", e);
-                                    message.fail(500, e.getMessage());
-                                }*/
-                            } catch (Exception e) {
-                                log.error("Error processing event message", e);
-                                message.fail(500, e.getMessage());
-                            } finally {
-                                if (scopeEntered) {
-                                    try {
-                                        scoper.exit();
-                                    } catch (Exception e) {
-                                        log.error("Error exiting call scope: {}", e.getMessage(), e);
-                                    }
-                                }
-                            }
-                        });
-                    } else {
-                        vertx.eventBus().consumer(address, message -> {
-                            CallScoper scoper = IGuiceContext.get(CallScoper.class);
-                            boolean scopeEntered = false;
-                            try {
-                                scoper.enter();
-                                CallScopeProperties csp = IGuiceContext.get(CallScopeProperties.class);
-                                csp.setSource(CallScopeSource.VertXConsumer);
-                                scopeEntered = true;
-
-                                Class<?> consumerClass = eventConsumerClass.get(address);
-                                Object consumer = IGuiceContext.get(consumerClass);
-
-                                handleMethodBasedConsumer(message, consumerClass.getMethod("consume", Message.class), consumerClass);
-
-                                // Try to find and invoke the consume method
-                             /*   try {
-                                    Method consumeMethod = consumerClass.getMethod("consume", Message.class);
-                                    consumeMethod.invoke(consumer, message);
-                                } catch (NoSuchMethodException e) {
-                                    log.error("No consume method found for class {}", consumerClass.getName());
-                                    message.fail(500, "No consume method found");
-                                } catch (Exception e) {
-                                    log.error("Error invoking consume method", e);
-                                    message.fail(500, e.getMessage());
-                                }*/
-                            } catch (Exception e) {
-                                log.error("Error processing event message", e);
-                                message.fail(500, e.getMessage());
-                            } finally {
-                                if (scopeEntered) {
-                                    try {
-                                        scoper.exit();
-                                    } catch (Exception e) {
-                                        log.error("Error exiting call scope: {}", e.getMessage(), e);
-                                    }
-                                }
-                            }
-                        });
+                int instances = Math.max(1, eventDefinition.options().instances() > 0 ? eventDefinition.options().instances() : eventDefinition.options().consumerCount());
+                boolean local = eventDefinition.options().localOnly();
+                for (int i = 0; i < instances; i++) {
+                    Method consumeMethod;
+                    Class<?> consumerClass = eventConsumerClass.get(address);
+                    try {
+                        consumeMethod = consumerClass.getMethod("consume", Message.class);
+                    } catch (Exception e) {
+                        log.error("No consume(Message) method found for class {}", consumerClass.getName());
+                        continue;
                     }
+
+                    MessageConsumer<Object> mc = local
+                            ? vertx.eventBus().localConsumer(address, message -> dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition))
+                            : vertx.eventBus().consumer(address, message -> dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition));
+
+                    // maxBufferedMessages advisory; MessageConsumer#setMaxBufferedMessages may not be available in all Vert.x versions
+                    // if (eventDefinition.options().maxBufferedMessages() > 0) {
+                    //     mc.setMaxBufferedMessages(eventDefinition.options().maxBufferedMessages());
+                    // }
                 }
             }
         });
@@ -332,19 +276,45 @@ public class VertxEventRegistry {
                 Method method = eventConsumerMethods.get(address);
                 Class<?> methodClass = eventConsumerMethodClasses.get(address);
 
-                for (int i = 0; i < eventDefinition.options().consumerCount(); i++) {
-                    if (eventDefinition.options().localOnly()) {
-                        vertx.eventBus().localConsumer(address, message -> {
-                            handleMethodBasedConsumer(message, method, methodClass);
-                        });
-                    } else {
-                        vertx.eventBus().consumer(address, message -> {
-                            handleMethodBasedConsumer(message, method, methodClass);
-                        });
-                    }
+                int instances = Math.max(1, eventDefinition.options().instances() > 0 ? eventDefinition.options().instances() : eventDefinition.options().consumerCount());
+                boolean local = eventDefinition.options().localOnly();
+                for (int i = 0; i < instances; i++) {
+                    MessageConsumer<Object> mc = local
+                            ? vertx.eventBus().localConsumer(address, message -> dispatch(vertx, message, method, methodClass, eventDefinition))
+                            : vertx.eventBus().consumer(address, message -> dispatch(vertx, message, method, methodClass, eventDefinition));
+                    // Note: setMaxBufferedMessages is not available on all Vert.x targets; advisory only
                 }
             }
         });
+    }
+
+    /**
+     * Dispatches a received message according to event options (e.g., worker pool)
+     */
+    private static void dispatch(Vertx vertx, Message<?> message, Method method, Class<?> methodClass, VertxEventDefinition eventDefinition) {
+        try {
+            if (eventDefinition != null && eventDefinition.options().worker()) {
+                String pool = eventDefinition.options().workerPool();
+                if (pool != null && !pool.isEmpty()) {
+                    int size = eventDefinition.options().workerPoolSize() > 0 ? eventDefinition.options().workerPoolSize() : 20;
+                    WorkerExecutor exec = workerExecutors.computeIfAbsent(pool, name -> vertx.createSharedWorkerExecutor(name, size));
+                    exec.executeBlocking(() -> {
+                        handleMethodBasedConsumer(message, method, methodClass);
+                        return null;
+                    }, false);
+                } else {
+                    vertx.executeBlocking(() -> {
+                        handleMethodBasedConsumer(message, method, methodClass);
+                        return null;
+                    }, false);
+                }
+            } else {
+                handleMethodBasedConsumer(message, method, methodClass);
+            }
+        } catch (Throwable t) {
+            log.error("Error dispatching message on address {}: {}", message.address(), t.getMessage(), t);
+            try { message.fail(500, t.getMessage()); } catch (Throwable ignored) {}
+        }
     }
 
     /**
@@ -536,6 +506,56 @@ public class VertxEventRegistry {
                     @Override
                     public int consumerCount() {
                         return 1;
+                    }
+
+                    @Override
+                    public boolean worker() {
+                        return false;
+                    }
+
+                    @Override
+                    public String workerPool() {
+                        return "";
+                    }
+
+                    @Override
+                    public int workerPoolSize() {
+                        return 0;
+                    }
+
+                    @Override
+                    public int instances() {
+                        return 0;
+                    }
+
+                    @Override
+                    public String orderedByHeader() {
+                        return "";
+                    }
+
+                    @Override
+                    public int maxBufferedMessages() {
+                        return 0;
+                    }
+
+                    @Override
+                    public int resumeAtMessages() {
+                        return 0;
+                    }
+
+                    @Override
+                    public int batchWindowMs() {
+                        return 0;
+                    }
+
+                    @Override
+                    public int batchMax() {
+                        return 0;
+                    }
+
+                    @Override
+                    public long timeoutMs() {
+                        return 0L;
                     }
 
                     @Override

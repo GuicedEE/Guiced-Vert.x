@@ -168,3 +168,7 @@ See the test classes for examples of how to use the event bus consumer and publi
 - `MethodBasedConsumerTest`: Example of method-based consumers with different return types and parameter types
 - `MethodBasedPublisherTest`: Example of publishing messages to method-based consumers
 - `JsonConversionTest`: Example of JSON conversion for custom object types
+
+
+### Special Test Cases
+- The guiced-injection cannot be added for tests due to cyclic dependency on the branch. Add this locally before executing tests

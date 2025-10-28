@@ -140,6 +140,25 @@ public class VertxEventPublisher<T> {
     }
 
     /**
+     * Publish a message locally only (won't cross the cluster)
+     */
+    public void publishLocal(T message) {
+        DeliveryOptions options = new DeliveryOptions().setLocalOnly(true);
+        publish(message, options);
+    }
+
+    /**
+     * Publish a message with optional headers and localOnly flag
+     */
+    public void publish(T message, java.util.Map<String, String> headers, boolean localOnly) {
+        DeliveryOptions options = new DeliveryOptions().setLocalOnly(localOnly);
+        if (headers != null) {
+            headers.forEach(options::addHeader);
+        }
+        publish(message, options);
+    }
+
+    /**
      * Send a message to the event bus (point-to-point) with delivery options
      *
      * @param message The message to send
@@ -164,5 +183,30 @@ public class VertxEventPublisher<T> {
             log.error("Error serializing message to JSON", e);
             return Future.failedFuture(e);
         }
+    }
+
+    /**
+     * Send a message with a specific timeout
+     */
+    public <R> Future<R> send(T message, long timeoutMs) {
+        DeliveryOptions options = new DeliveryOptions();
+        if (timeoutMs > 0) {
+            options.setSendTimeout(timeoutMs);
+        }
+        return send(message, options);
+    }
+
+    /**
+     * Send a message with headers and optional timeout
+     */
+    public <R> Future<R> send(T message, java.util.Map<String, String> headers, long timeoutMs) {
+        DeliveryOptions options = new DeliveryOptions();
+        if (headers != null) {
+            headers.forEach(options::addHeader);
+        }
+        if (timeoutMs > 0) {
+            options.setSendTimeout(timeoutMs);
+        }
+        return send(message, options);
     }
 }
