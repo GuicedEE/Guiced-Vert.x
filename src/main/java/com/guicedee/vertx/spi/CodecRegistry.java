@@ -154,7 +154,7 @@ public class CodecRegistry {
         
         // Check if the codec is already registered
         if (registeredCodecs.containsKey(codecName)) {
-            log.debug("Codec already registered for type {} with name {}", rawClass.getName(), codecName);
+            log.trace("Codec already registered for type {} with name {}", rawClass.getName(), codecName);
             return codecName;
         }
         
@@ -163,7 +163,7 @@ public class CodecRegistry {
             MessageCodec<T, T> codec = new DynamicCodec<>(rawClass, codecName);
             vertx.eventBus().registerCodec(codec);
             registeredCodecs.put(codecName, true);
-            log.info("Registered codec for type {} with name {}", rawClass.getName(), codecName);
+            log.debug("Registered codec for type {} with name {}", rawClass.getName(), codecName);
             return codecName;
         } catch (Exception e) {
             log.error("Error registering codec for type {} with name {}", rawClass.getName(), codecName, e);
@@ -177,7 +177,7 @@ public class CodecRegistry {
      * @param vertx The Vertx instance
      */
     public static void createAndRegisterCodecsForAllEventTypes(Vertx vertx) {
-        log.info("Creating and registering codecs for all event types");
+        log.trace("Creating and registering codecs for all event types");
         
         // Register codecs for consumer reference types
         VertxEventRegistry.getEventConsumerReferenceTypes().forEach((address, type) -> {
