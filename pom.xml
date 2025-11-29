@@ -15,7 +15,7 @@
     <packaging>jar</packaging>
     <version>2.0.0-SNAPSHOT</version>
     <name>Guiced Vert.x</name>
-    <description>Integrates Vert.x with Guice DI</description>
+    <description>Guice-first integration layer for Vert.x 5: bootstraps Vert.x from GuicedEE, wires verticles and event bus publishers/consumers, and supplies codecs plus Mutiny helpers.</description>
 
     <properties>
         <project.scm.nameUrl>/GuicedEE/Guiced-Vert.x</project.scm.nameUrl>
