@@ -4,16 +4,13 @@ import com.google.inject.Key;
 import com.google.inject.PrivateModule;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
-import com.google.inject.TypeLiteral;
 import com.google.inject.name.Names;
-import com.guicedee.client.IGuiceContext;
-import com.guicedee.guicedinjection.interfaces.IGuiceModule;
+import com.guicedee.client.services.lifecycle.IGuiceModule;
 import com.guicedee.vertx.spi.VertXPreStartup;
 import com.guicedee.vertx.spi.VertxEventRegistry;
 import io.vertx.core.Vertx;
 import lombok.extern.log4j.Log4j2;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.HashSet;

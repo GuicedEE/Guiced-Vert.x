@@ -1,5 +1,27 @@
 # GuicedVertx
 
+Adopted Rules Repository (see `rules/` submodule). For current docs:
+- PACT.md, RULES.md, GUIDES.md, IMPLEMENTATION.md, IMPLEMENTATION_PLAN.md, GLOSSARY.md
+- Architecture index: docs/architecture/README.md (C4, sequences, ERD)
+- Design validation: docs/design-validation.md
+- Prompt reference: docs/PROMPT_REFERENCE.md
+- Topic rules index: rules/generative/backend/guicedee/vertx/README.md
+
+Environment/CI:
+- Copy `.env.example` and set deployment-specific values (no secrets committed).
+- GitHub Actions workflow at `.github/workflows/build.yml` builds/tests with Java 25.
+
+## How to use these rules
+- Load docs/PROMPT_REFERENCE.md with RULES.md, PACT.md, GUIDES.md, IMPLEMENTATION.md, and docs/architecture/* before generating changes.
+- Apply Guiced Vert.x guidance from `rules/generative/backend/guicedee/vertx/README.md` (lifecycle, event definitions, publishers, codecs, configurators, verticles).
+- Follow CRTP fluent API rules (`rules/generative/backend/fluent-api/crtp.rules.md`) and Vert.x 5 guidance (`rules/generative/backend/vertx/README.md`); avoid Lombok @Builder.
+- Use CI/CD and secrets rules from `rules/generative/platform/ci-cd/providers/github-actions.md` and `rules/generative/platform/secrets-config/env-variables.md`.
+
+## Prompt Language Alignment & Glossary
+- Topic-first glossary: `rules/generative/backend/guicedee/vertx/GLOSSARY.md` is authoritative for GuicedEE ↔ Vert.x bridge terminology.
+- Host glossary index: GLOSSARY.md links to selected stacks; only copy enforced prompt-alignment names into host glossaries, otherwise link back to the topic glossary.
+- Keep naming consistent with Vert.x 5 and CRTP terminology (no Builder semantics).
+
 GuicedVertx provides integration between Vert.x and Guice, allowing for dependency injection in Vert.x applications.
 
 ## Features

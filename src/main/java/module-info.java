@@ -1,6 +1,8 @@
+import com.guicedee.client.services.lifecycle.IGuiceModule;
+import com.guicedee.client.services.lifecycle.IGuicePreDestroy;
+import com.guicedee.client.services.lifecycle.IGuicePreStartup;
 import com.guicedee.vertx.*;
 import com.guicedee.vertx.spi.*;
-import com.guicedee.guicedinjection.interfaces.*;
 
 module com.guicedee.vertx {
     requires transitive io.vertx.core;

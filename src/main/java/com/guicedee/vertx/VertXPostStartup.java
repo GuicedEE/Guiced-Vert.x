@@ -1,7 +1,7 @@
 package com.guicedee.vertx;
 
 import com.google.inject.Singleton;
-import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
+import com.guicedee.client.services.lifecycle.IGuicePreDestroy;
 import com.guicedee.vertx.spi.VertXPreStartup;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;

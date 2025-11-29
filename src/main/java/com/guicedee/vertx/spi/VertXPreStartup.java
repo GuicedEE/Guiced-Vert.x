@@ -1,8 +1,8 @@
 package com.guicedee.vertx.spi;
 
 import com.guicedee.client.IGuiceContext;
-import com.guicedee.guicedinjection.interfaces.IGuicePreDestroy;
-import com.guicedee.guicedinjection.interfaces.IGuicePreStartup;
+import com.guicedee.client.services.lifecycle.IGuicePreDestroy;
+import com.guicedee.client.services.lifecycle.IGuicePreStartup;
 import com.guicedee.services.jsonrepresentation.IJsonRepresentation;
 import io.vertx.core.Future;
 import io.vertx.core.Verticle;
