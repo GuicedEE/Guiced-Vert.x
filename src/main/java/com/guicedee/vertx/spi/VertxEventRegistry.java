@@ -3,9 +3,9 @@ package com.guicedee.vertx.spi;
 import com.google.inject.Key;
 import com.google.inject.TypeLiteral;
 import com.google.inject.name.Names;
+import com.guicedee.client.IGuiceContext;
 import com.guicedee.client.scopes.CallScopeProperties;
 import com.guicedee.client.scopes.CallScopeSource;
-import com.guicedee.client.IGuiceContext;
 import com.guicedee.client.scopes.CallScoper;
 import com.guicedee.services.jsonrepresentation.IJsonRepresentation;
 import com.guicedee.vertx.VertxEventDefinition;
@@ -14,11 +14,11 @@ import com.guicedee.vertx.VertxEventPublisher;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.WorkerExecutor;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.WorkerExecutor;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
@@ -298,17 +298,25 @@ public class VertxEventRegistry {
                     int size = eventDefinition.options().workerPoolSize() > 0 ? eventDefinition.options().workerPoolSize() : 20;
                     WorkerExecutor exec = workerExecutors.computeIfAbsent(pool, name -> vertx.createSharedWorkerExecutor(name, size));
                     exec.executeBlocking(() -> {
-                        handleMethodBasedConsumer(message, method, methodClass);
-                        return null;
+                        return withCallScope(() -> {
+                            handleMethodBasedConsumer(message, method, methodClass);
+                            return null;
+                        }, CallScopeSource.VertXConsumer);
                     }, false);
                 } else {
                     vertx.executeBlocking(() -> {
-                        handleMethodBasedConsumer(message, method, methodClass);
-                        return null;
+                        return withCallScope(() -> {
+                            handleMethodBasedConsumer(message, method, methodClass);
+                            return null;
+                        }, CallScopeSource.VertXConsumer);
                     }, false);
                 }
             } else {
-                handleMethodBasedConsumer(message, method, methodClass);
+                // Ensure CallScope is active even for non-worker consumers
+                withCallScope(() -> {
+                    handleMethodBasedConsumer(message, method, methodClass);
+                    return null;
+                }, CallScopeSource.VertXConsumer);
             }
         } catch (Throwable t) {
             log.error("Error dispatching message on address {}: {}", message.address(), t.getMessage(), t);
@@ -316,11 +324,33 @@ public class VertxEventRegistry {
         }
     }
 
+    private static <T> T withCallScope(java.util.concurrent.Callable<T> task, CallScopeSource source) {
+        CallScoper callScoper = IGuiceContext.get(CallScoper.class);
+        boolean startedScope = callScoper.isStartedScope();
+        if (!startedScope) {
+            callScoper.enter();
+        }
+        try {
+            CallScopeProperties props = IGuiceContext.get(CallScopeProperties.class);
+            if (props.getSource() == null || props.getSource() == CallScopeSource.Unknown) {
+                props.setSource(source);
+            }
+            return task.call();
+        } catch (RuntimeException re) {
+            throw re;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (!startedScope) {
+                callScoper.exit();
+            }
+        }
+    }
+
     /**
      * Handles a message by invoking a method-based consumer
      */
     private static void handleMethodBasedConsumer(Message<?> message, Method method, Class<?> methodClass) {
-        CallScoper scoper = IGuiceContext.get(CallScoper.class);
         try {
             // Get an instance of the class from Guice
             Object instance = IGuiceContext.get(methodClass);
@@ -328,37 +358,27 @@ public class VertxEventRegistry {
             var context = Vertx.currentContext();
 
             if (context != null) {
-                // Execute the method in a blocking context
+                // Ensure CallScope is active at the actual execution site (inside the event loop callback)
                 context.runOnContext((_) -> {
-                    try {
-                        // Prepare method parameters
-                        Object[] params = prepareMethodParameters(method, message);
-                        if(!scoper.isStartedScope()) {
-                            scoper.enter();
+                    withCallScope(() -> {
+                        try {
+                            // Prepare method parameters
+                            Object[] params = prepareMethodParameters(method, message);
+                            CallScopeProperties csp = IGuiceContext.get(CallScopeProperties.class);
+                            csp.setSource(CallScopeSource.VertXConsumer);
+
+                            // Invoke the method
+                            Object result = method.invoke(instance, params);
+
+                            // Handle the result based on its type
+                            handleMethodResult(result, message);
+                            return null;
+                        } catch (Exception e) {
+                            log.error("Error invoking method-based consumer", e);
+                            try { message.fail(500, e.getMessage()); } catch (Throwable ignored) {}
+                            throw new RuntimeException(e);
                         }
-                        CallScopeProperties csp = IGuiceContext.get(CallScopeProperties.class);
-                        csp.setSource(CallScopeSource.VertXConsumer);
-
-                        // Invoke the method
-                        Object result = method.invoke(instance, params);
-
-                        // Handle the result based on its type
-                        handleMethodResult(result, message);
-
-                        //return null;
-                    } catch (Exception e) {
-                        log.error("Error invoking method-based consumer", e);
-                        message.fail(500, e.getMessage());
-                        throw new RuntimeException(e);
-                    } finally {
-                        if (scoper.isStartedScope()) {
-                            try {
-                                scoper.exit();
-                            } catch (Exception e) {
-                                log.error("Error exiting call scope: {}", e.getMessage(), e);
-                            }
-                        }
-                    }
+                    }, CallScopeSource.VertXConsumer);
                 });
             } else {
                 log.error("No Vertx context found, cannot invoke method-based consumer - {}.{}()", methodClass.getSimpleName(), method.getName());
@@ -629,45 +649,6 @@ public class VertxEventRegistry {
             log.warn("Failed to create Guice key for type {} at address {}: {}",
                     type.getTypeName(), address, e.getMessage());
             return Key.get(Object.class, Names.named(address));
-        }
-    }
-
-    /**
-     * Extracts the generic type parameter from a class with a consume method that takes a Message parameter
-     *
-     * @param clazz The class to extract the generic type parameter from
-     * @return The generic type parameter, or null if not found
-     */
-    private static Type extractConsumerGenericType(Class<?> clazz) {
-        try {
-            // Look for a consume method that takes a Message parameter
-            try {
-                Method consumeMethod = clazz.getMethod("consume", Message.class);
-                if (consumeMethod != null) {
-                    // Extract the parameter type from the consume method
-                    Parameter[] parameters = consumeMethod.getParameters();
-                    if (parameters.length > 0 && Message.class.isAssignableFrom(parameters[0].getType())) {
-                        Type paramType = parameters[0].getParameterizedType();
-                        if (paramType instanceof ParameterizedType) {
-                            ParameterizedType parameterizedType = (ParameterizedType) paramType;
-                            Type[] typeArgs = parameterizedType.getActualTypeArguments();
-                            if (typeArgs.length > 0) {
-                                return typeArgs[0];
-                            }
-                        }
-                    }
-                }
-            } catch (NoSuchMethodException e) {
-                // No consume method found, that's okay
-                log.debug("No consume method found for class {}", clazz.getName());
-            }
-
-            // If not found, return null
-            return null;
-        } catch (Exception e) {
-            log.warn("Failed to extract generic type from consumer class {}: {}",
-                    clazz.getName(), e.getMessage());
-            return null;
         }
     }
 }
