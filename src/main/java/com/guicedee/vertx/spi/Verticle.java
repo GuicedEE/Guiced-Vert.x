@@ -39,7 +39,7 @@ public @interface Verticle {
      *
      * @return the threading model (default: {@code ThreadingModel.EVENT_LOOP} - This is now set as a virtual thread)
      */
-    ThreadingModel threadingModel() default ThreadingModel.VIRTUAL_THREAD;
+    ThreadingModel threadingModel() default ThreadingModel.EVENT_LOOP;
 
     /**
      * Defines the number of instances of the verticle to be deployed.

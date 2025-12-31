@@ -39,4 +39,5 @@ module com.guicedee.vertx {
 
     uses com.guicedee.vertx.spi.VertxConfigurator;
     uses VerticleStartup;
+    provides VerticleStartup with com.guicedee.vertx.spi.VertxConsumersStartup;
 }

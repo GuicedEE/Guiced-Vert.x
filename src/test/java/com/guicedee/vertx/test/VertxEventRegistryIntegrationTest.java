@@ -54,7 +54,7 @@ public class VertxEventRegistryIntegrationTest {
         VertxEventPublisher<String> publisher = new VertxEventPublisher<>(vertx, def.value(), def);
 
         // Act
-        Future<String> fut = publisher.send("ping");
+        Future<String> fut = publisher.request("ping");
         String reply = fut.toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
 
         // Assert

@@ -47,7 +47,7 @@ public class MethodBasedPublisherTest {
      */
     public Future<Object> testStringMethod() {
         log.info("Publishing to string method consumer");
-        return stringMethodPublisher.send("Hello from string method test")
+        return stringMethodPublisher.request("Hello from string method test")
                 .onSuccess(response -> log.info("Received response from string method: {}", response))
                 .onFailure(error -> log.error("Error from string method", error));
     }
@@ -57,7 +57,7 @@ public class MethodBasedPublisherTest {
      */
     public Future<Object> testFutureMethod() {
         log.info("Publishing to future method consumer");
-        return futureMethodPublisher.send("Hello from future method test")
+        return futureMethodPublisher.request("Hello from future method test")
                 .onSuccess(response -> log.info("Received response from future method: {}", response))
                 .onFailure(error -> log.error("Error from future method", error));
     }
@@ -67,7 +67,7 @@ public class MethodBasedPublisherTest {
      */
     public Future<Object> testCompletableMethod() {
         log.info("Publishing to completable future method consumer");
-        return completableMethodPublisher.send("Hello from completable future method test")
+        return completableMethodPublisher.request("Hello from completable future method test")
                 .onSuccess(response -> log.info("Received response from completable future method: {}", response))
                 .onFailure(error -> log.error("Error from completable future method", error));
     }

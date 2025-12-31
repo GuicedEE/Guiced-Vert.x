@@ -52,14 +52,36 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             // Build the Vertx instance
             vertx = builder.build();
 
-            // Initialize the VertxEventRegistry
-            VertxEventRegistry.scanAndRegisterEvents();
-            
-            // Register dynamic codecs for all event types
-            CodecRegistry.createAndRegisterCodecsForAllEventTypes(vertx);
-            
-            // Register event consumers
-            VertxEventRegistry.registerEventConsumers();
+            // Always scan event definitions early so codec registry has full type info
+            // Safe to call multiple times; scanning is idempotent in the registry
+            try {
+                VertxEventRegistry.scanAndRegisterEvents();
+            } catch (Throwable t) {
+                // Do not fail startup if scan throws; continue and rely on later scans
+            }
+
+            // Register dynamic codecs for all event types up-front so publishers across
+            // all verticles can use them. This is global to the Vertx instance.
+            try {
+                CodecRegistry.createAndRegisterCodecsForAllEventTypes(vertx);
+            } catch (Throwable t) {
+                // Log-only in case registry has partial data; consumers may reattempt later
+            }
+
+            // Deploy verticles by package using VerticleBuilder
+            Map<String, io.vertx.core.Verticle> deployed = new VerticleBuilder().findVerticles();
+
+            // If no verticles were identified/deployed for some reason, fall back to global registration
+            if (deployed == null || deployed.isEmpty()) {
+                // Initialize the VertxEventRegistry (global fallback)
+                VertxEventRegistry.scanAndRegisterEvents();
+
+                // Register dynamic codecs for all event types
+                CodecRegistry.createAndRegisterCodecsForAllEventTypes(vertx);
+
+                // Register event consumers
+                VertxEventRegistry.registerEventConsumers();
+            }
         }
         return List.of(Future.succeededFuture(true));
     }

@@ -25,6 +25,15 @@ public class VertXModule extends PrivateModule implements IGuiceModule<VertXModu
     @Override
     protected void configure()
     {
+        // Ensure event definitions are scanned before we attempt to bind anything.
+        // This makes bindings available regardless of when verticles are deployed.
+        // Safe to call multiple times if startup also triggers a scan.
+        try {
+            VertxEventRegistry.scanAndRegisterEvents();
+        } catch (Throwable t) {
+            log.warn("VertxEventRegistry.scanAndRegisterEvents() failed or not available at this stage: {}", t.getMessage());
+        }
+
         // Bind the Vertx instance
         bind(Vertx.class).toInstance(VertXPreStartup.getVertx());
         expose(Vertx.class);

@@ -288,6 +288,79 @@ public class VertxEventRegistry {
     }
 
     /**
+     * Registers event consumers filtered by assigned package or excluded prefixes, for per-verticle startup.
+     *
+     * @param assignedPackage The package assigned to the current verticle. If non-empty, only consumers whose
+     *                        classes are under this package are registered. If empty, only consumers NOT under any
+     *                        of the excluded prefixes are registered (default verticle).
+     * @param excludedPrefixes Package prefixes that are handled by annotated verticles and should be excluded from
+     *                         the default verticle registration. May be null or empty.
+     */
+    public static void registerEventConsumersFiltered(String assignedPackage, java.util.List<String> excludedPrefixes) {
+        Vertx vertx = VertXPreStartup.getVertx();
+
+        java.util.function.Predicate<String> includeByPackage;
+        if (assignedPackage != null && !assignedPackage.isEmpty()) {
+            includeByPackage = pkg -> pkg != null && pkg.startsWith(assignedPackage);
+        } else {
+            java.util.List<String> excludes = excludedPrefixes == null ? java.util.List.of() : excludedPrefixes;
+            includeByPackage = pkg -> pkg != null && excludes.stream().noneMatch(p -> !p.isEmpty() && pkg.startsWith(p));
+        }
+
+        // Class-based consumers
+        eventConsumerDefinitions.forEach((address, eventDefinition) -> {
+            if (eventDefinition.options().autobind() && eventConsumerClass.containsKey(address)) {
+                Class<?> consumerClass = eventConsumerClass.get(address);
+                if (!includeByPackage.test(consumerClass.getPackageName())) {
+                    return;
+                }
+
+                log.debug("[{}] Registering class-based consumer for address: {}", assignedPackage, address);
+
+                int instances = Math.max(1, eventDefinition.options().instances() > 0 ? eventDefinition.options().instances() : eventDefinition.options().consumerCount());
+                boolean local = eventDefinition.options().localOnly();
+                for (int i = 0; i < instances; i++) {
+                    Method consumeMethod;
+                    try {
+                        consumeMethod = consumerClass.getMethod("consume", Message.class);
+                    } catch (Exception e) {
+                        log.error("No consume(Message) method found for class {}", consumerClass.getName());
+                        continue;
+                    }
+
+                    if (local) {
+                        vertx.eventBus().localConsumer(address, message -> dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition));
+                    } else {
+                        vertx.eventBus().consumer(address, message -> dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition));
+                    }
+                }
+            }
+        });
+
+        // Method-based consumers
+        eventConsumerDefinitions.forEach((address, eventDefinition) -> {
+            if (eventDefinition.options().autobind() && eventConsumerMethods.containsKey(address)) {
+                Method method = eventConsumerMethods.get(address);
+                Class<?> methodClass = eventConsumerMethodClasses.get(address);
+                if (!includeByPackage.test(methodClass.getPackageName())) {
+                    return;
+                }
+                log.debug("[{}] Registering method-based consumer for address: {}", assignedPackage, address);
+
+                int instances = Math.max(1, eventDefinition.options().instances() > 0 ? eventDefinition.options().instances() : eventDefinition.options().consumerCount());
+                boolean local = eventDefinition.options().localOnly();
+                for (int i = 0; i < instances; i++) {
+                    if (local) {
+                        vertx.eventBus().localConsumer(address, message -> dispatch(vertx, message, method, methodClass, eventDefinition));
+                    } else {
+                        vertx.eventBus().consumer(address, message -> dispatch(vertx, message, method, methodClass, eventDefinition));
+                    }
+                }
+            }
+        });
+    }
+
+    /**
      * Dispatches a received message according to event options (e.g., worker pool)
      */
     private static void dispatch(Vertx vertx, Message<?> message, Method method, Class<?> methodClass, VertxEventDefinition eventDefinition) {
@@ -352,40 +425,27 @@ public class VertxEventRegistry {
      */
     private static void handleMethodBasedConsumer(Message<?> message, Method method, Class<?> methodClass) {
         try {
-            // Get an instance of the class from Guice
+            // Obtain target instance from Guice
             Object instance = IGuiceContext.get(methodClass);
-            // Get the current Vertx context
-            var context = Vertx.currentContext();
 
-            if (context != null) {
-                // Ensure CallScope is active at the actual execution site (inside the event loop callback)
-                context.runOnContext((_) -> {
-                    withCallScope(() -> {
-                        try {
-                            // Prepare method parameters
-                            Object[] params = prepareMethodParameters(method, message);
-                            CallScopeProperties csp = IGuiceContext.get(CallScopeProperties.class);
-                            csp.setSource(CallScopeSource.VertXConsumer);
+            // Prepare parameters
+            Object[] params = prepareMethodParameters(method, message);
 
-                            // Invoke the method
-                            Object result = method.invoke(instance, params);
+            // Ensure source is correctly set for the current call scope
+            CallScopeProperties csp = IGuiceContext.get(CallScopeProperties.class);
+            csp.setSource(CallScopeSource.VertXConsumer);
 
-                            // Handle the result based on its type
-                            handleMethodResult(result, message);
-                            return null;
-                        } catch (Exception e) {
-                            log.error("Error invoking method-based consumer", e);
-                            try { message.fail(500, e.getMessage()); } catch (Throwable ignored) {}
-                            throw new RuntimeException(e);
-                        }
-                    }, CallScopeSource.VertXConsumer);
-                });
-            } else {
-                log.error("No Vertx context found, cannot invoke method-based consumer - {}.{}()", methodClass.getSimpleName(), method.getName());
-            }
+            // Directly invoke on the current thread (event-loop or worker depending on dispatch)
+            Object result = method.invoke(instance, params);
+
+            // Handle the result
+            handleMethodResult(result, message);
         } catch (Exception e) {
-            log.error("Error processing event message", e);
-            message.fail(500, e.getMessage());
+            log.error("Error invoking method-based consumer {}.{}()", methodClass.getSimpleName(), method.getName(), e);
+            try {
+                message.fail(500, e.getMessage());
+            } catch (Throwable ignored) {
+            }
         }
     }
 

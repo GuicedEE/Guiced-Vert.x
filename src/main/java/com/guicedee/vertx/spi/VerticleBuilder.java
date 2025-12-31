@@ -19,6 +19,8 @@ public class VerticleBuilder
     private static final Map<String, io.vertx.core.Verticle> verticlePackages = new TreeMap<>();
     @Getter
     private static final Map<String, Future<?>> verticleFutures = new TreeMap<>();
+    @Getter
+    private static final List<String> annotatedPrefixes = new ArrayList<>();
 
 
     /**
@@ -60,7 +62,7 @@ public class VerticleBuilder
                     //super.start(startPromise);
                 }
             });
-
+            // Deploy after map fully built (single global verticle)
             map.forEach((key, value) -> {
                 log.info("Deploying Global Verticle: {} - global-worker-pool", key);
                 var verticalFuture = VertXPreStartup.getVertx().deployVerticle(value, new DeploymentOptions());
@@ -69,11 +71,15 @@ public class VerticleBuilder
         }
         else
         {
+            // Collect all annotated verticle package prefixes (including capabilities)
+            List<String> allAnnotatedPackages = new ArrayList<>();
+
             for (ClassInfo classInfo : foundVerticleClasses)
             {
                 var annotation = classInfo.loadClass().getDeclaredAnnotation(Verticle.class);
                 log.info("Found Verticle: {} - {}", classInfo.getPackageName(), classInfo.getSimpleName());
                 List<String> packageNames = getAppliedPackageNames(classInfo, annotation);
+                allAnnotatedPackages.addAll(packageNames);
 
                 map.put(classInfo.getPackageName(), new AbstractVerticle()
                 {
@@ -90,8 +96,12 @@ public class VerticleBuilder
                         @SuppressWarnings("rawtypes")
                         ServiceLoader<VerticleStartup> startups = ServiceLoader.load(VerticleStartup.class);
                         startups.stream().map(ServiceLoader.Provider::get)
-                                .filter(a -> packageNames.stream()
-                                        .anyMatch(pkg -> a.getClass().getPackage().getName().startsWith(pkg)))
+                                .filter(a ->
+                                        // Allow startups in the assigned package/capabilities
+                                        packageNames.stream().anyMatch(pkg -> a.getClass().getPackage().getName().startsWith(pkg))
+                                                // Always allow core vertx SPI startups
+                                                || a.getClass().getPackage().getName().startsWith("com.guicedee.vertx.spi")
+                                )
                                 .forEachOrdered(entry -> {
                                     //noinspection unchecked
                                     entry.start(startPromise, vertx, this, classInfo.getPackageName());
@@ -99,15 +109,52 @@ public class VerticleBuilder
                         //super.start(startPromise);
                     }
                 });
-
-
-                map.forEach((key, value) -> {
-                    log.info("Deploying Verticle: {} - {}", key, annotation.workerPoolName());
-                    var verticalFuture = VertXPreStartup.getVertx().deployVerticle(value, toDeploymentOptions(annotation));
-                    verticleFutures.put(key, verticalFuture);
-                });
             }
+
+            // Add a default verticle for everything NOT covered by annotated packages
+            // Build an immutable snapshot of prefixes to test against
+            final List<String> prefixes = List.copyOf(allAnnotatedPackages);
+            map.put("", new AbstractVerticle()
+            {
+                @Override
+                public void start(Promise<Void> startPromise) throws Exception
+                {
+                    @SuppressWarnings("rawtypes")
+                    ServiceLoader<VerticleStartup> startups = ServiceLoader.load(VerticleStartup.class);
+                    startups.stream().map(ServiceLoader.Provider::get)
+                            // Only include startups whose package does NOT start with any annotated prefix
+                            .filter(a -> prefixes.stream().noneMatch(pkg -> !pkg.isEmpty() && a.getClass().getPackage().getName().startsWith(pkg)))
+                            .forEachOrdered(entry -> {
+                                //noinspection unchecked
+                                entry.start(startPromise, vertx, this, "");
+                            });
+                }
+            });
+
+            // Deploy all prepared verticles once after map is complete
+            map.forEach((key, value) -> {
+                // Determine deployment options: for specific verticles, use their annotation; default uses defaults
+                DeploymentOptions opts;
+                if (key.isEmpty()) {
+                    opts = new DeploymentOptions();
+                    log.info("Deploying Default Verticle for non-annotated packages");
+                } else {
+                    // Find class annotation again by key
+                    ClassInfo ci = foundVerticleClasses.stream()
+                            .filter(c -> c.getPackageName().equals(key))
+                            .findFirst()
+                            .orElse(null);
+                    Verticle ann = ci != null ? ci.loadClass().getDeclaredAnnotation(Verticle.class) : null;
+                    opts = ann != null ? toDeploymentOptions(ann) : new DeploymentOptions();
+                    log.info("Deploying Verticle: {}", key);
+                }
+                var verticalFuture = VertXPreStartup.getVertx().deployVerticle(value, opts);
+                verticleFutures.put(key, verticalFuture);
+            });
         }
+        // Expose annotated prefixes globally for other components (like consumer registration filtering)
+        annotatedPrefixes.clear();
+        annotatedPrefixes.addAll(map.keySet());
         verticlePackages.putAll(map);
         return map;
     }

@@ -37,7 +37,7 @@ public class TestVertxPublisher {
      */
     public Future<String> sendMessage(String message) {
         log.info("Sending message: {}", message);
-        return eventPublisher.send(message);
+        return eventPublisher.request(message);
     }
     
     /**

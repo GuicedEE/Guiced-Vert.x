@@ -88,32 +88,23 @@ public class VertxEventPublisher<T> {
     }
 
     /**
-     * Send a message to the event bus (point-to-point)
+     * Fire-and-forget point-to-point send (no reply expected)
      *
      * @param message The message to send
-     * @return A future that completes with the reply
      */
-    public <R> Future<R> send(T message) {
-        log.trace("Sending message to address {} - {}", address, message);
+    public void send(T message) {
+        log.trace("Fire-and-forget send to address {} - {}", address, message);
         try {
             String codecName = getCodecName(message);
             if (codecName != null) {
                 DeliveryOptions options = new DeliveryOptions().setCodecName(codecName);
-                return vertx.eventBus().request(address, message, options)
-                        .map(reply -> {
-                            Object body = reply.body();
-                            return (R) body;
-                        });
+                vertx.eventBus().send(address, message, options);
             } else {
-                return vertx.eventBus().request(address, message)
-                        .map(reply -> {
-                            Object body = reply.body();
-                            return (R) body;
-                        });
+                vertx.eventBus().send(address, message);
             }
         } catch (Exception e) {
-            log.error("Error serializing message to JSON", e);
-            return Future.failedFuture(e);
+            log.error("Error sending message", e);
+            throw new RuntimeException("Error sending message", e);
         }
     }
 
@@ -159,54 +150,110 @@ public class VertxEventPublisher<T> {
     }
 
     /**
-     * Send a message to the event bus (point-to-point) with delivery options
+     * Fire-and-forget point-to-point send with delivery options (no reply expected)
      *
      * @param message The message to send
      * @param options Delivery options
-     * @return A future that completes with the reply
      */
-    public <R> Future<R> send(T message, DeliveryOptions options) {
-        log.trace("Sending message to address {} with options - {}", address, message);
+    public void send(T message, DeliveryOptions options) {
+        log.trace("Fire-and-forget send to address {} with options - {}", address, message);
         try {
+            if (options == null) options = new DeliveryOptions();
             // Set codec name if not already set and message is not a standard Vertx type
             String codecName = getCodecName(message);
             if (codecName != null && options.getCodecName() == null) {
                 options.setCodecName(codecName);
             }
-
-            return vertx.eventBus().request(address, message, options)
-                    .map(reply -> {
-                        Object body = reply.body();
-                        return (R) body;
-                    });
+            vertx.eventBus().send(address, message, options);
         } catch (Exception e) {
-            log.error("Error serializing message to JSON", e);
+            log.error("Error sending message with options", e);
+            throw new RuntimeException("Error sending message with options", e);
+        }
+    }
+
+    /**
+     * Fire-and-forget local-only send (won't cross the cluster)
+     */
+    public void sendLocal(T message) {
+        DeliveryOptions options = new DeliveryOptions().setLocalOnly(true);
+        send(message, options);
+    }
+
+    /**
+     * Fire-and-forget send with headers and localOnly flag
+     */
+    public void send(T message, java.util.Map<String, String> headers, boolean localOnly) {
+        DeliveryOptions options = new DeliveryOptions().setLocalOnly(localOnly);
+        if (headers != null) {
+            headers.forEach(options::addHeader);
+        }
+        send(message, options);
+    }
+
+    /**
+     * Request/reply: point-to-point that expects a reply.
+     * Uses @VertxEventOptions.timeoutMs() when configured.
+     */
+    public <R> Future<R> request(T message) {
+        log.trace("Requesting on address {} - {}", address, message);
+        try {
+            DeliveryOptions options = new DeliveryOptions();
+            // Default timeout from annotation if provided
+            if (eventDefinition != null && eventDefinition.options() != null) {
+                long configured = eventDefinition.options().timeoutMs();
+                if (configured > 0) options.setSendTimeout(configured);
+            }
+            String codecName = getCodecName(message);
+            if (codecName != null) options.setCodecName(codecName);
+            return vertx.eventBus().request(address, message, options)
+                    .map(reply -> (R) reply.body());
+        } catch (Exception e) {
+            log.error("Error performing request", e);
             return Future.failedFuture(e);
         }
     }
 
     /**
-     * Send a message with a specific timeout
+     * Request/reply with explicit delivery options.
      */
-    public <R> Future<R> send(T message, long timeoutMs) {
-        DeliveryOptions options = new DeliveryOptions();
-        if (timeoutMs > 0) {
-            options.setSendTimeout(timeoutMs);
+    public <R> Future<R> request(T message, DeliveryOptions options) {
+        log.trace("Requesting on address {} with options - {}", address, message);
+        try {
+            if (options == null) options = new DeliveryOptions();
+            // Apply codec if needed
+            String codecName = getCodecName(message);
+            if (codecName != null && options.getCodecName() == null) {
+                options.setCodecName(codecName);
+            }
+            // If no timeout provided, prefer annotation default
+            if (options.getSendTimeout() == 0 && eventDefinition != null && eventDefinition.options() != null) {
+                long configured = eventDefinition.options().timeoutMs();
+                if (configured > 0) options.setSendTimeout(configured);
+            }
+            return vertx.eventBus().request(address, message, options)
+                    .map(reply -> (R) reply.body());
+        } catch (Exception e) {
+            log.error("Error performing request with options", e);
+            return Future.failedFuture(e);
         }
-        return send(message, options);
     }
 
     /**
-     * Send a message with headers and optional timeout
+     * Request/reply with explicit timeout.
      */
-    public <R> Future<R> send(T message, java.util.Map<String, String> headers, long timeoutMs) {
+    public <R> Future<R> request(T message, long timeoutMs) {
         DeliveryOptions options = new DeliveryOptions();
-        if (headers != null) {
-            headers.forEach(options::addHeader);
-        }
-        if (timeoutMs > 0) {
-            options.setSendTimeout(timeoutMs);
-        }
-        return send(message, options);
+        if (timeoutMs > 0) options.setSendTimeout(timeoutMs);
+        return request(message, options);
+    }
+
+    /**
+     * Request/reply with headers and timeout.
+     */
+    public <R> Future<R> request(T message, java.util.Map<String, String> headers, long timeoutMs) {
+        DeliveryOptions options = new DeliveryOptions();
+        if (headers != null) headers.forEach(options::addHeader);
+        if (timeoutMs > 0) options.setSendTimeout(timeoutMs);
+        return request(message, options);
     }
 }

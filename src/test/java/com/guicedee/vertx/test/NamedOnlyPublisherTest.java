@@ -35,7 +35,7 @@ public class NamedOnlyPublisherTest {
      */
     public Future<String> sendMessage(String message) {
         log.info("Sending message: {}", message);
-        return namedOnlyPublisher.send(message);
+        return namedOnlyPublisher.request(message);
     }
 
     /**
