@@ -16,12 +16,19 @@ import java.lang.reflect.Type;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Guice module that exposes a shared Vert.x instance and binds event consumers
+ * and publishers discovered by {@link VertxEventRegistry}.
+ * <p>
+ * Bindings are created once per address and exposed for injection, with
+ * generic-aware publishers produced via the registry metadata.
+ */
 @Log4j2
 public class VertXModule extends PrivateModule implements IGuiceModule<VertXModule>
 {
     // Set to track which addresses have already been bound
     private static final Set<String> boundAddresses = new HashSet<>();
-
+ 
     @Override
     protected void configure()
     {

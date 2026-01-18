@@ -7,8 +7,10 @@ import io.vertx.core.eventbus.MessageCodec;
 import lombok.extern.log4j.Log4j2;
 
 /**
- * A dynamic codec that can be instantiated for any type
- * @param <T> The type of object this codec handles
+ * Message codec that serializes/deserializes payloads using the shared
+ * Jackson mapper from {@link IJsonRepresentation}.
+ *
+ * @param <T> The type of object this codec handles.
  */
 @Log4j2
 public class DynamicCodec<T> implements MessageCodec<T, T> {
@@ -17,9 +19,10 @@ public class DynamicCodec<T> implements MessageCodec<T, T> {
     private final String codecName;
     
     /**
-     * Creates a new dynamic codec for the given type
-     * @param type The class of the type this codec handles
-     * @param codecName The name of the codec
+     * Creates a new dynamic codec for the given type.
+     *
+     * @param type The class of the type this codec handles.
+     * @param codecName The name of the codec.
      */
     public DynamicCodec(Class<T> type, String codecName) {
         this.type = type;

@@ -5,6 +5,10 @@ import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import lombok.extern.log4j.Log4j2;
 
+/**
+ * Verticle startup hook that registers event consumers scoped to the
+ * verticle's assigned package.
+ */
 @Log4j2
 public class VertxConsumersStartup implements VerticleStartup<VertxConsumersStartup>
 {

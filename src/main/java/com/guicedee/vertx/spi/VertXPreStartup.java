@@ -12,12 +12,21 @@ import io.vertx.core.VertxOptions;
 import io.vertx.core.json.jackson.DatabindCodec;
 
 import lombok.Getter;
-
+ 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
 
+/**
+ * Bootstraps the shared Vert.x instance during Guice pre-startup and
+ * tears it down on shutdown.
+ * <p>
+ * Startup responsibilities include applying annotation-driven options,
+ * loading {@link VertxConfigurator} contributions, configuring JSON
+ * serialization, and pre-registering event types/codecs before verticles
+ * are deployed. The Vert.x instance is cached and reused across calls.
+ */
 @Getter
 public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuicePreDestroy<VertXPreStartup>
 {

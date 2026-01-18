@@ -12,6 +12,13 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * Discovers {@link Verticle} annotations, builds verticle instances, and
+ * deploys them with per-annotation {@link DeploymentOptions}.
+ * <p>
+ * Also maintains the package-to-verticle map and deployment futures so
+ * other components can resolve verticles by package prefix.
+ */
 @Log4j2
 public class VerticleBuilder
 {
