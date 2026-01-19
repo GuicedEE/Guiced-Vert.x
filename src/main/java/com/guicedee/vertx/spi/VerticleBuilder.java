@@ -189,34 +189,107 @@ public class VerticleBuilder
 
     private DeploymentOptions toDeploymentOptions(Verticle vertical)
     {
+        Verticle wrapped = new Verticle()
+        {
+            @Override
+            public Class<? extends java.lang.annotation.Annotation> annotationType()
+            {
+                return Verticle.class;
+            }
+
+            @Override
+            public ThreadingModel threadingModel()
+            {
+                String threadingStr = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_THREADING_MODEL", vertical.threadingModel().name());
+                try
+                {
+                    return ThreadingModel.valueOf(threadingStr);
+                }
+                catch (IllegalArgumentException e)
+                {
+                    return vertical.threadingModel();
+                }
+            }
+
+            @Override
+            public int defaultInstances()
+            {
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_DEFAULT_INSTANCES", String.valueOf(vertical.defaultInstances())));
+            }
+
+            @Override
+            public boolean ha()
+            {
+                return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_HA", String.valueOf(vertical.ha())));
+            }
+
+            @Override
+            public String workerPoolName()
+            {
+                return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_WORKER_POOL_NAME", vertical.workerPoolName());
+            }
+
+            @Override
+            public int workerPoolSize()
+            {
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_WORKER_POOL_SIZE", String.valueOf(vertical.workerPoolSize())));
+            }
+
+            @Override
+            public long maxWorkerExecuteTime()
+            {
+                return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_MAX_WORKER_EXECUTE_TIME", String.valueOf(vertical.maxWorkerExecuteTime())));
+            }
+
+            @Override
+            public TimeUnit maxWorkerExecuteTimeUnit()
+            {
+                String unitStr = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_MAX_WORKER_EXECUTE_TIME_UNIT", vertical.maxWorkerExecuteTimeUnit().name());
+                try
+                {
+                    return TimeUnit.valueOf(unitStr);
+                }
+                catch (IllegalArgumentException e)
+                {
+                    return vertical.maxWorkerExecuteTimeUnit();
+                }
+            }
+
+            @Override
+            public Capabilities[] capabilities()
+            {
+                return vertical.capabilities();
+            }
+        };
+
         DeploymentOptions d = new DeploymentOptions();
-        if (vertical.ha())
+        if (wrapped.ha())
         {
             d.setHa(true);
         }
-        if (vertical.threadingModel() != ThreadingModel.EVENT_LOOP)
+        if (wrapped.threadingModel() != ThreadingModel.EVENT_LOOP)
         {
-            d.setThreadingModel(vertical.threadingModel());
+            d.setThreadingModel(wrapped.threadingModel());
         }
-        if (vertical.defaultInstances() != 1)
+        if (wrapped.defaultInstances() != 1)
         {
-            d.setInstances(vertical.defaultInstances());
+            d.setInstances(wrapped.defaultInstances());
         }
-        if (!Strings.isNullOrEmpty(vertical.workerPoolName()))
+        if (!Strings.isNullOrEmpty(wrapped.workerPoolName()))
         {
-            d.setWorkerPoolName(vertical.workerPoolName());
+            d.setWorkerPoolName(wrapped.workerPoolName());
         }
-        if (vertical.workerPoolSize() != 20)
+        if (wrapped.workerPoolSize() != 20)
         {
-            d.setWorkerPoolSize(vertical.workerPoolSize());
+            d.setWorkerPoolSize(wrapped.workerPoolSize());
         }
-        if (vertical.maxWorkerExecuteTime() != 2)
+        if (wrapped.maxWorkerExecuteTime() != 2)
         {
-            d.setMaxWorkerExecuteTime(vertical.maxWorkerExecuteTime());
+            d.setMaxWorkerExecuteTime(wrapped.maxWorkerExecuteTime());
         }
-        if (vertical.maxWorkerExecuteTimeUnit() != TimeUnit.MINUTES)
+        if (wrapped.maxWorkerExecuteTimeUnit() != TimeUnit.MINUTES)
         {
-            d.setMaxWorkerExecuteTimeUnit(vertical.maxWorkerExecuteTimeUnit());
+            d.setMaxWorkerExecuteTimeUnit(wrapped.maxWorkerExecuteTimeUnit());
         }
         return d;
     }

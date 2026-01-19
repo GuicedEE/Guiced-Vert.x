@@ -61,6 +61,101 @@ public class VertxEventRegistry {
     @Getter
     private static Map<String, Type> eventConsumerReferenceTypes = new HashMap<>();
 
+    private static VertxEventDefinition wrapEventDefinition(VertxEventDefinition definition) {
+        if (definition == null) return null;
+        return new VertxEventDefinition() {
+            @Override
+            public Class<? extends Annotation> annotationType() {
+                return VertxEventDefinition.class;
+            }
+
+            @Override
+            public String value() {
+                return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_ADDRESS", definition.value());
+            }
+
+            @Override
+            public VertxEventOptions options() {
+                return wrapEventOptions(definition.options());
+            }
+        };
+    }
+
+    private static VertxEventOptions wrapEventOptions(VertxEventOptions options) {
+        if (options == null) return null;
+        return new VertxEventOptions() {
+            @Override
+            public Class<? extends Annotation> annotationType() {
+                return VertxEventOptions.class;
+            }
+
+            @Override
+            public boolean localOnly() {
+                return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_LOCAL_ONLY", String.valueOf(options.localOnly())));
+            }
+
+            @Override
+            public boolean autobind() {
+                return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_AUTOBIND", String.valueOf(options.autobind())));
+            }
+
+            @Override
+            public int consumerCount() {
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_CONSUMER_COUNT", String.valueOf(options.consumerCount())));
+            }
+
+            @Override
+            public boolean worker() {
+                return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_WORKER", String.valueOf(options.worker())));
+            }
+
+            @Override
+            public String workerPool() {
+                return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_WORKER_POOL", options.workerPool());
+            }
+
+            @Override
+            public int workerPoolSize() {
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_WORKER_POOL_SIZE", String.valueOf(options.workerPoolSize())));
+            }
+
+            @Override
+            public int instances() {
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_INSTANCES", String.valueOf(options.instances())));
+            }
+
+            @Override
+            public String orderedByHeader() {
+                return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_ORDERED_BY_HEADER", options.orderedByHeader());
+            }
+
+            @Override
+            public int maxBufferedMessages() {
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_MAX_BUFFERED_MESSAGES", String.valueOf(options.maxBufferedMessages())));
+            }
+
+            @Override
+            public int resumeAtMessages() {
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_RESUME_AT_MESSAGES", String.valueOf(options.resumeAtMessages())));
+            }
+
+            @Override
+            public int batchWindowMs() {
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_BATCH_WINDOW_MS", String.valueOf(options.batchWindowMs())));
+            }
+
+            @Override
+            public int batchMax() {
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_BATCH_MAX", String.valueOf(options.batchMax())));
+            }
+
+            @Override
+            public long timeoutMs() {
+                return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_TIMEOUT_MS", String.valueOf(options.timeoutMs())));
+            }
+        };
+    }
+
     /**
      * Scans for classes with @VertxEventDefinition annotation and registers them
      */
@@ -77,7 +172,7 @@ public class VertxEventRegistry {
         for (var consumerClassInfo : consumerClasses) {
             try {
                 Class consumerClass = consumerClassInfo.loadClass();
-                VertxEventDefinition eventDefinition = (VertxEventDefinition) consumerClass.getAnnotation(VertxEventDefinition.class);
+                VertxEventDefinition eventDefinition = wrapEventDefinition((VertxEventDefinition) consumerClass.getAnnotation(VertxEventDefinition.class));
                 String address = eventDefinition.value();
 
                 log.debug("Registering Vertx event consumer for address: {}", address);
@@ -123,7 +218,7 @@ public class VertxEventRegistry {
             try {
                 Class<?> clazz = classInfo.loadClass();
                 for (Method method : clazz.getDeclaredMethods()) {
-                    VertxEventDefinition eventDefinition = method.getAnnotation(VertxEventDefinition.class);
+                    VertxEventDefinition eventDefinition = wrapEventDefinition(method.getAnnotation(VertxEventDefinition.class));
                     if (eventDefinition != null) {
                         String address = eventDefinition.value();
 
@@ -170,7 +265,7 @@ public class VertxEventRegistry {
                     // Check if field type is VertxEventPublisher
                     if (field.getType().equals(VertxEventPublisher.class)) {
                         String address = null;
-                        VertxEventDefinition eventDefinition = field.getAnnotation(VertxEventDefinition.class);
+                        VertxEventDefinition eventDefinition = wrapEventDefinition(field.getAnnotation(VertxEventDefinition.class));
 
                         // If @VertxEventDefinition is present, use its value as address
                         if (eventDefinition != null) {
@@ -563,7 +658,7 @@ public class VertxEventRegistry {
      * @return A default VertxEventDefinition
      */
     private static VertxEventDefinition createDefaultEventDefinition(String address) {
-        return new VertxEventDefinition() {
+        return wrapEventDefinition(new VertxEventDefinition() {
             @Override
             public String value() {
                 return address;
@@ -648,7 +743,7 @@ public class VertxEventRegistry {
             public Class<? extends Annotation> annotationType() {
                 return VertxEventDefinition.class;
             }
-        };
+        });
     }
 
     /**
