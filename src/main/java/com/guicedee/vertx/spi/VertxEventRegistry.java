@@ -36,6 +36,17 @@ public class VertxEventRegistry {
 
     private static final java.util.concurrent.ConcurrentHashMap<String, WorkerExecutor> workerExecutors = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /**
+     * Flag to track if consumers have been registered globally.
+     * This prevents double registration when both direct and verticle-based registration paths are used.
+     */
+    private static volatile boolean consumersRegistered = false;
+
+    /**
+     * Set of addresses that have already been registered to prevent duplicate consumer registration.
+     */
+    private static final java.util.Set<String> registeredAddresses = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     @Getter
     private static final Map<String, VertxEventDefinition> eventConsumerDefinitions = new HashMap<>();
 
@@ -63,6 +74,8 @@ public class VertxEventRegistry {
 
     private static VertxEventDefinition wrapEventDefinition(VertxEventDefinition definition) {
         if (definition == null) return null;
+        // Capture the original address value before creating the wrapper
+        final String originalAddress = definition.value();
         return new VertxEventDefinition() {
             @Override
             public Class<? extends Annotation> annotationType() {
@@ -71,7 +84,12 @@ public class VertxEventRegistry {
 
             @Override
             public String value() {
-                return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_ADDRESS", definition.value());
+                // Allow per-address override via VERTX_EVENT_ADDRESS_<NORMALIZED_ADDRESS> environment variable
+                // e.g., for address "my.event.address", check VERTX_EVENT_ADDRESS_MY_EVENT_ADDRESS
+                String normalizedAddress = originalAddress.toUpperCase().replace('.', '_').replace('-', '_');
+                String envKey = "VERTX_EVENT_ADDRESS_" + normalizedAddress;
+                String addressOverride = System.getProperty(envKey, System.getenv(envKey));
+                return (addressOverride != null && !addressOverride.isEmpty()) ? addressOverride : originalAddress;
             }
 
             @Override
@@ -169,13 +187,15 @@ public class VertxEventRegistry {
                 .filter(classInfo -> !classInfo.isInterfaceOrAnnotation() && !classInfo.isAbstract())
                 .toList();
 
+        log.info("Found {} consumer classes with @VertxEventDefinition", consumerClasses.size());
+
         for (var consumerClassInfo : consumerClasses) {
             try {
                 Class consumerClass = consumerClassInfo.loadClass();
                 VertxEventDefinition eventDefinition = wrapEventDefinition((VertxEventDefinition) consumerClass.getAnnotation(VertxEventDefinition.class));
                 String address = eventDefinition.value();
 
-                log.debug("Registering Vertx event consumer for address: {}", address);
+                log.info("Registering Vertx event consumer class {} for address: {}", consumerClass.getSimpleName(), address);
                 eventConsumerDefinitions.put(address, eventDefinition);
                 eventConsumerClass.put(address, consumerClass);
 
@@ -332,11 +352,25 @@ public class VertxEventRegistry {
      * Registers event consumers with the Vertx event bus
      */
     public static void registerEventConsumers() {
+        if (consumersRegistered) {
+            log.debug("Consumers already registered globally, skipping registerEventConsumers()");
+            return;
+        }
+
         Vertx vertx = VertXPreStartup.getVertx();
+
+        log.info("registerEventConsumers called. eventConsumerDefinitions size={}, eventConsumerClass size={}, eventConsumerMethods size={}",
+                eventConsumerDefinitions.size(), eventConsumerClass.size(), eventConsumerMethods.size());
 
         // Register class-based consumers
         eventConsumerDefinitions.forEach((address, eventDefinition) -> {
             if (eventDefinition.options().autobind() && eventConsumerClass.containsKey(address)) {
+                // Skip if already registered
+                if (registeredAddresses.contains(address)) {
+                    log.debug("Consumer for address {} already registered, skipping", address);
+                    return;
+                }
+
                 log.debug("Registering class-based event consumer for address: {}", address);
 
                 int instances = Math.max(1, eventDefinition.options().instances() > 0 ? eventDefinition.options().instances() : eventDefinition.options().consumerCount());
@@ -360,12 +394,20 @@ public class VertxEventRegistry {
                     //     mc.setMaxBufferedMessages(eventDefinition.options().maxBufferedMessages());
                     // }
                 }
+                // Mark this address as registered
+                registeredAddresses.add(address);
             }
         });
 
         // Register method-based consumers
         eventConsumerDefinitions.forEach((address, eventDefinition) -> {
             if (eventDefinition.options().autobind() && eventConsumerMethods.containsKey(address)) {
+                // Skip if already registered
+                if (registeredAddresses.contains(address)) {
+                    log.debug("Method consumer for address {} already registered, skipping", address);
+                    return;
+                }
+
                 log.debug("Registering method-based event consumer for address: {}", address);
                 Method method = eventConsumerMethods.get(address);
                 Class<?> methodClass = eventConsumerMethodClasses.get(address);
@@ -378,8 +420,13 @@ public class VertxEventRegistry {
                             : vertx.eventBus().consumer(address, message -> dispatch(vertx, message, method, methodClass, eventDefinition));
                     // Note: setMaxBufferedMessages is not available on all Vert.x targets; advisory only
                 }
+                // Mark this address as registered
+                registeredAddresses.add(address);
             }
         });
+
+        // Mark that global registration is complete
+        consumersRegistered = true;
     }
 
     /**
@@ -394,6 +441,8 @@ public class VertxEventRegistry {
     public static void registerEventConsumersFiltered(String assignedPackage, java.util.List<String> excludedPrefixes) {
         Vertx vertx = VertXPreStartup.getVertx();
 
+        log.debug("registerEventConsumersFiltered called for package='{}', excludedPrefixes={}", assignedPackage, excludedPrefixes);
+
         java.util.function.Predicate<String> includeByPackage;
         if (assignedPackage != null && !assignedPackage.isEmpty()) {
             includeByPackage = pkg -> pkg != null && pkg.startsWith(assignedPackage);
@@ -407,6 +456,12 @@ public class VertxEventRegistry {
             if (eventDefinition.options().autobind() && eventConsumerClass.containsKey(address)) {
                 Class<?> consumerClass = eventConsumerClass.get(address);
                 if (!includeByPackage.test(consumerClass.getPackageName())) {
+                    return;
+                }
+
+                // Skip if already registered
+                if (registeredAddresses.contains(address)) {
+                    log.debug("[{}] Consumer for address {} already registered, skipping", assignedPackage, address);
                     return;
                 }
 
@@ -429,6 +484,8 @@ public class VertxEventRegistry {
                         vertx.eventBus().consumer(address, message -> dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition));
                     }
                 }
+                // Mark this address as registered
+                registeredAddresses.add(address);
             }
         });
 
@@ -440,6 +497,13 @@ public class VertxEventRegistry {
                 if (!includeByPackage.test(methodClass.getPackageName())) {
                     return;
                 }
+
+                // Skip if already registered
+                if (registeredAddresses.contains(address)) {
+                    log.debug("[{}] Method consumer for address {} already registered, skipping", assignedPackage, address);
+                    return;
+                }
+
                 log.debug("[{}] Registering method-based consumer for address: {}", assignedPackage, address);
 
                 int instances = Math.max(1, eventDefinition.options().instances() > 0 ? eventDefinition.options().instances() : eventDefinition.options().consumerCount());
@@ -451,6 +515,8 @@ public class VertxEventRegistry {
                         vertx.eventBus().consumer(address, message -> dispatch(vertx, message, method, methodClass, eventDefinition));
                     }
                 }
+                // Mark this address as registered
+                registeredAddresses.add(address);
             }
         });
     }
@@ -460,12 +526,16 @@ public class VertxEventRegistry {
      */
     private static void dispatch(Vertx vertx, Message<?> message, Method method, Class<?> methodClass, VertxEventDefinition eventDefinition) {
         try {
-            if (eventDefinition != null && eventDefinition.options().worker()) {
+            boolean isWorker = eventDefinition != null && eventDefinition.options().worker();
+            log.debug("Dispatching message on address {}, worker={}", message.address(), isWorker);
+
+            if (isWorker) {
                 String pool = eventDefinition.options().workerPool();
                 if (pool != null && !pool.isEmpty()) {
                     int size = eventDefinition.options().workerPoolSize() > 0 ? eventDefinition.options().workerPoolSize() : 20;
                     WorkerExecutor exec = workerExecutors.computeIfAbsent(pool, name -> vertx.createSharedWorkerExecutor(name, size));
                     exec.executeBlocking(() -> {
+                        log.debug("Executing on named worker pool: {}", pool);
                         return withCallScope(() -> {
                             handleMethodBasedConsumer(message, method, methodClass);
                             return null;
@@ -473,6 +543,7 @@ public class VertxEventRegistry {
                     }, false);
                 } else {
                     vertx.executeBlocking(() -> {
+                        log.debug("Executing on default worker pool");
                         return withCallScope(() -> {
                             handleMethodBasedConsumer(message, method, methodClass);
                             return null;

@@ -58,7 +58,13 @@
 
         <dependency>
             <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -71,6 +77,11 @@
             <groupId>com.guicedee.services</groupId>
             <artifactId>vertx-mutiny</artifactId>
         </dependency>
+
+<!--        <dependency>
+            <groupId>com.guicedee</groupId>
+            <artifactId>guice-injection</artifactId>
+        </dependency>-->
 
     </dependencies>
 

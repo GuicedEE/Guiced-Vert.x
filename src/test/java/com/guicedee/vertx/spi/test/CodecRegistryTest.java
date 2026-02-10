@@ -1,5 +1,8 @@
-package com.guicedee.vertx.spi;
+package com.guicedee.vertx.spi.test;
 
+import com.guicedee.client.IGuiceContext;
+import com.guicedee.vertx.spi.CodecRegistry;
+import com.guicedee.vertx.spi.VertXPreStartup;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.MessageCodec;
@@ -20,7 +23,10 @@ public class CodecRegistryTest {
     
     @BeforeEach
     public void setUp() {
-        vertx = Vertx.vertx();
+        // Boot Vert.x and auto-register consumers per VertXPreStartup
+        IGuiceContext.instance().getConfig().setFieldScanning(true).setClasspathScanning(true).setAnnotationScanning(true).setIgnoreClassVisibility(true);
+        IGuiceContext.instance().inject();
+        vertx = VertXPreStartup.getVertx();
     }
     
     @Test

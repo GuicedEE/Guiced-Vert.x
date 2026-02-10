@@ -12,7 +12,7 @@ import io.vertx.core.VertxOptions;
 import io.vertx.core.json.jackson.DatabindCodec;
 
 import lombok.Getter;
- 
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -28,8 +28,7 @@ import java.util.ServiceLoader;
  * are deployed. The Vert.x instance is cached and reused across calls.
  */
 @Getter
-public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuicePreDestroy<VertXPreStartup>
-{
+public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuicePreDestroy<VertXPreStartup> {
     private static Vertx vertx;
 
     public static Optional<io.vertx.core.Verticle> getAssociatedVerticle(Class<?> clazz) {
@@ -61,35 +60,25 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             // Build the Vertx instance
             vertx = builder.build();
 
-            // Always scan event definitions early so codec registry has full type info
-            // Safe to call multiple times; scanning is idempotent in the registry
-            try {
-                VertxEventRegistry.scanAndRegisterEvents();
-            } catch (Throwable t) {
-                // Do not fail startup if scan throws; continue and rely on later scans
-            }
+            // Scan event definitions early so codec registry has full type info
+            // This populates eventConsumerDefinitions and eventConsumerClass maps
+            VertxEventRegistry.scanAndRegisterEvents();
 
-            // Register dynamic codecs for all event types up-front so publishers across
-            // all verticles can use them. This is global to the Vertx instance.
-            try {
-                CodecRegistry.createAndRegisterCodecsForAllEventTypes(vertx);
-            } catch (Throwable t) {
-                // Log-only in case registry has partial data; consumers may reattempt later
-            }
+            // Register dynamic codecs for all event types up-front
+            CodecRegistry.createAndRegisterCodecsForAllEventTypes(vertx);
 
-            // Deploy verticles by package using VerticleBuilder
-            Map<String, io.vertx.core.Verticle> deployed = new VerticleBuilder().findVerticles();
+            // Deploy verticles - each verticle will register its assigned consumers via VertxConsumersStartup
+            // The returned futures are collected so the startup lifecycle can wait for them
+            new VerticleBuilder().findVerticles();
 
-            // If no verticles were identified/deployed for some reason, fall back to global registration
-            if (deployed == null || deployed.isEmpty()) {
-                // Initialize the VertxEventRegistry (global fallback)
-                VertxEventRegistry.scanAndRegisterEvents();
-
-                // Register dynamic codecs for all event types
-                CodecRegistry.createAndRegisterCodecsForAllEventTypes(vertx);
-
-                // Register event consumers
-                VertxEventRegistry.registerEventConsumers();
+            // Return the verticle deployment futures so the lifecycle waits for them to complete
+            // before moving to post-startups
+            Map<String, Future<?>> verticleFutures = VerticleBuilder.getVerticleFutures();
+            if (verticleFutures != null && !verticleFutures.isEmpty()) {
+                return verticleFutures.values().stream()
+                        .map(f -> f.map(v -> true))
+                        .map(f -> (Future<Boolean>) f)
+                        .toList();
             }
         }
         return List.of(Future.succeededFuture(true));
@@ -111,107 +100,89 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             if (annotation == null) {
                 throw new RuntimeException("Could not read VertX annotation from class");
             }
-            VertX wrappedVertX = new VertX()
-            {
+            VertX wrappedVertX = new VertX() {
                 @Override
-                public Class<? extends java.lang.annotation.Annotation> annotationType()
-                {
+                public Class<? extends java.lang.annotation.Annotation> annotationType() {
                     return VertX.class;
                 }
 
                 @Override
-                public int eventLoopPoolSize()
-                {
+                public int eventLoopPoolSize() {
                     return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_LOOP_POOL_SIZE", String.valueOf(annotation.eventLoopPoolSize())));
                 }
 
                 @Override
-                public int workerPoolSize()
-                {
+                public int workerPoolSize() {
                     return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_WORKER_POOL_SIZE", String.valueOf(annotation.workerPoolSize())));
                 }
 
                 @Override
-                public long blockedThreadCheckInterval()
-                {
+                public long blockedThreadCheckInterval() {
                     return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_BLOCKED_THREAD_CHECK_INTERVAL", String.valueOf(annotation.blockedThreadCheckInterval())));
                 }
 
                 @Override
-                public java.util.concurrent.TimeUnit blockedThreadCheckIntervalTimeUnit()
-                {
+                public java.util.concurrent.TimeUnit blockedThreadCheckIntervalTimeUnit() {
                     return java.util.concurrent.TimeUnit.valueOf(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_BLOCKED_THREAD_CHECK_INTERVAL_TIME_UNIT", annotation.blockedThreadCheckIntervalTimeUnit().name()));
                 }
 
                 @Override
-                public long maxEventLoopExecuteTime()
-                {
+                public long maxEventLoopExecuteTime() {
                     return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_MAX_EVENT_LOOP_EXECUTE_TIME", String.valueOf(annotation.maxEventLoopExecuteTime())));
                 }
 
                 @Override
-                public java.util.concurrent.TimeUnit maxEventLoopExecuteTimeUnit()
-                {
+                public java.util.concurrent.TimeUnit maxEventLoopExecuteTimeUnit() {
                     return java.util.concurrent.TimeUnit.valueOf(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_MAX_EVENT_LOOP_EXECUTE_TIME_UNIT", annotation.maxEventLoopExecuteTimeUnit().name()));
                 }
 
                 @Override
-                public long maxWorkerExecuteTime()
-                {
+                public long maxWorkerExecuteTime() {
                     return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_MAX_WORKER_EXECUTE_TIME", String.valueOf(annotation.maxWorkerExecuteTime())));
                 }
 
                 @Override
-                public java.util.concurrent.TimeUnit maxWorkerExecuteTimeUnit()
-                {
+                public java.util.concurrent.TimeUnit maxWorkerExecuteTimeUnit() {
                     return java.util.concurrent.TimeUnit.valueOf(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_MAX_WORKER_EXECUTE_TIME_UNIT", annotation.maxWorkerExecuteTimeUnit().name()));
                 }
 
                 @Override
-                public int internalBlockingPoolSize()
-                {
+                public int internalBlockingPoolSize() {
                     return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_INTERNAL_BLOCKING_POOL_SIZE", String.valueOf(annotation.internalBlockingPoolSize())));
                 }
 
                 @Override
-                public boolean haEnabled()
-                {
+                public boolean haEnabled() {
                     return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_HA_ENABLED", String.valueOf(annotation.haEnabled())));
                 }
 
                 @Override
-                public int quorumSize()
-                {
+                public int quorumSize() {
                     return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_QUORUM_SIZE", String.valueOf(annotation.quorumSize())));
                 }
 
                 @Override
-                public long warningExceptionTime()
-                {
+                public long warningExceptionTime() {
                     return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_WARNING_EXCEPTION_TIME", String.valueOf(annotation.warningExceptionTime())));
                 }
 
                 @Override
-                public java.util.concurrent.TimeUnit warningExceptionTimeUnit()
-                {
+                public java.util.concurrent.TimeUnit warningExceptionTimeUnit() {
                     return java.util.concurrent.TimeUnit.valueOf(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_WARNING_EXCEPTION_TIME_UNIT", annotation.warningExceptionTimeUnit().name()));
                 }
 
                 @Override
-                public boolean preferNativeTransport()
-                {
+                public boolean preferNativeTransport() {
                     return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_PREFER_NATIVE_TRANSPORT", String.valueOf(annotation.preferNativeTransport())));
                 }
 
                 @Override
-                public boolean useDaemonThreads()
-                {
+                public boolean useDaemonThreads() {
                     return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_USE_DAEMON_THREADS", String.valueOf(annotation.useDaemonThreads())));
                 }
 
                 @Override
-                public boolean disableTCCL()
-                {
+                public boolean disableTCCL() {
                     return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_DISABLE_TCCL", String.valueOf(annotation.disableTCCL())));
                 }
             };
@@ -250,17 +221,14 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             var clazz = metricsConfig.getFirst().loadClass();
             MetricsOptions metricsAnnotation = clazz.getDeclaredAnnotation(MetricsOptions.class);
             if (metricsAnnotation != null) {
-                MetricsOptions wrappedMetrics = new MetricsOptions()
-                {
+                MetricsOptions wrappedMetrics = new MetricsOptions() {
                     @Override
-                    public Class<? extends java.lang.annotation.Annotation> annotationType()
-                    {
+                    public Class<? extends java.lang.annotation.Annotation> annotationType() {
                         return MetricsOptions.class;
                     }
 
                     @Override
-                    public boolean enabled()
-                    {
+                    public boolean enabled() {
                         return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_METRICS_ENABLED", String.valueOf(metricsAnnotation.enabled())));
                     }
                 };
@@ -277,29 +245,24 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             var clazz = fileSystemConfig.getFirst().loadClass();
             FileSystemOptions fileSystemAnnotation = clazz.getDeclaredAnnotation(FileSystemOptions.class);
             if (fileSystemAnnotation != null) {
-                FileSystemOptions wrappedFS = new FileSystemOptions()
-                {
+                FileSystemOptions wrappedFS = new FileSystemOptions() {
                     @Override
-                    public Class<? extends java.lang.annotation.Annotation> annotationType()
-                    {
+                    public Class<? extends java.lang.annotation.Annotation> annotationType() {
                         return FileSystemOptions.class;
                     }
 
                     @Override
-                    public boolean classPathResolvingEnabled()
-                    {
+                    public boolean classPathResolvingEnabled() {
                         return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_FILESYSTEM_CLASSPATH_RESOLVING", String.valueOf(fileSystemAnnotation.classPathResolvingEnabled())));
                     }
 
                     @Override
-                    public boolean fileCachingEnabled()
-                    {
+                    public boolean fileCachingEnabled() {
                         return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_FILESYSTEM_FILE_CACHING", String.valueOf(fileSystemAnnotation.fileCachingEnabled())));
                     }
 
                     @Override
-                    public String fileCacheDir()
-                    {
+                    public String fileCacheDir() {
                         return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_FILESYSTEM_FILE_CACHE_DIR", fileSystemAnnotation.fileCacheDir());
                     }
                 };
@@ -320,83 +283,69 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             var clazz = eventBusConfig.getFirst().loadClass();
             EventBusOptions eventBusAnnotation = clazz.getDeclaredAnnotation(EventBusOptions.class);
             if (eventBusAnnotation != null) {
-                EventBusOptions wrappedEB = new EventBusOptions()
-                {
+                EventBusOptions wrappedEB = new EventBusOptions() {
                     @Override
-                    public Class<? extends java.lang.annotation.Annotation> annotationType()
-                    {
+                    public Class<? extends java.lang.annotation.Annotation> annotationType() {
                         return EventBusOptions.class;
                     }
 
                     @Override
-                    public String clusterPublicHost()
-                    {
+                    public String clusterPublicHost() {
                         return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLUSTER_PUBLIC_HOST", eventBusAnnotation.clusterPublicHost());
                     }
 
                     @Override
-                    public int clusterPublicPort()
-                    {
+                    public int clusterPublicPort() {
                         return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLUSTER_PUBLIC_PORT", String.valueOf(eventBusAnnotation.clusterPublicPort())));
                     }
 
                     @Override
-                    public long clusterPingInterval()
-                    {
+                    public long clusterPingInterval() {
                         return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLUSTER_PING_INTERVAL", String.valueOf(eventBusAnnotation.clusterPingInterval())));
                     }
 
                     @Override
-                    public long clusterPingReplyInterval()
-                    {
+                    public long clusterPingReplyInterval() {
                         return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLUSTER_PING_REPLY_INTERVAL", String.valueOf(eventBusAnnotation.clusterPingReplyInterval())));
                     }
 
                     @Override
-                    public String host()
-                    {
+                    public String host() {
                         return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_HOST", eventBusAnnotation.host());
                     }
 
                     @Override
-                    public int port()
-                    {
+                    public int port() {
                         return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_PORT", String.valueOf(eventBusAnnotation.port())));
                     }
 
                     @Override
-                    public int acceptBacklog()
-                    {
+                    public int acceptBacklog() {
                         return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_ACCEPT_BACKLOG", String.valueOf(eventBusAnnotation.acceptBacklog())));
                     }
 
                     @Override
-                    public int reconnectAttempts()
-                    {
+                    public int reconnectAttempts() {
                         return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_RECONNECT_ATTEMPTS", String.valueOf(eventBusAnnotation.reconnectAttempts())));
                     }
 
                     @Override
-                    public long reconnectInterval()
-                    {
+                    public long reconnectInterval() {
                         return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_RECONNECT_INTERVAL", String.valueOf(eventBusAnnotation.reconnectInterval())));
                     }
 
                     @Override
-                    public int connectTimeout()
-                    {
+                    public int connectTimeout() {
                         return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CONNECT_TIMEOUT", String.valueOf(eventBusAnnotation.connectTimeout())));
                     }
 
                     @Override
-                    public boolean trustAll()
-                    {
+                    public boolean trustAll() {
                         return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_TRUST_ALL", String.valueOf(eventBusAnnotation.trustAll())));
                     }
 
                     @Override
-                    public String clientAuth()
-                    {
+                    public String clientAuth() {
                         return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLIENT_AUTH", eventBusAnnotation.clientAuth());
                     }
                 };
@@ -426,97 +375,81 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             var clazz = addressResolverConfig.getFirst().loadClass();
             AddressResolverOptions addressResolverAnnotation = clazz.getDeclaredAnnotation(AddressResolverOptions.class);
             if (addressResolverAnnotation != null) {
-                AddressResolverOptions wrappedAR = new AddressResolverOptions()
-                {
+                AddressResolverOptions wrappedAR = new AddressResolverOptions() {
                     @Override
-                    public Class<? extends java.lang.annotation.Annotation> annotationType()
-                    {
+                    public Class<? extends java.lang.annotation.Annotation> annotationType() {
                         return AddressResolverOptions.class;
                     }
 
                     @Override
-                    public String hostsPath()
-                    {
+                    public String hostsPath() {
                         return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_HOSTS_PATH", addressResolverAnnotation.hostsPath());
                     }
 
                     @Override
-                    public int hostsRefreshPeriod()
-                    {
+                    public int hostsRefreshPeriod() {
                         return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_HOSTS_REFRESH_PERIOD", String.valueOf(addressResolverAnnotation.hostsRefreshPeriod())));
                     }
 
                     @Override
-                    public String[] servers()
-                    {
+                    public String[] servers() {
                         String serversStr = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_SERVERS", String.join(",", addressResolverAnnotation.servers()));
                         return serversStr.isBlank() ? new String[0] : serversStr.split(",");
                     }
 
                     @Override
-                    public boolean rotateServers()
-                    {
+                    public boolean rotateServers() {
                         return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_ROTATE_SERVERS", String.valueOf(addressResolverAnnotation.rotateServers())));
                     }
 
                     @Override
-                    public int cacheMinTimeToLive()
-                    {
+                    public int cacheMinTimeToLive() {
                         return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_CACHE_MIN_TTL", String.valueOf(addressResolverAnnotation.cacheMinTimeToLive())));
                     }
 
                     @Override
-                    public int cacheMaxTimeToLive()
-                    {
+                    public int cacheMaxTimeToLive() {
                         return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_CACHE_MAX_TTL", String.valueOf(addressResolverAnnotation.cacheMaxTimeToLive())));
                     }
 
                     @Override
-                    public int cacheNegativeTimeToLive()
-                    {
+                    public int cacheNegativeTimeToLive() {
                         return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_CACHE_NEGATIVE_TTL", String.valueOf(addressResolverAnnotation.cacheNegativeTimeToLive())));
                     }
 
                     @Override
-                    public long queryTimeout()
-                    {
+                    public long queryTimeout() {
                         return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_QUERY_TIMEOUT", String.valueOf(addressResolverAnnotation.queryTimeout())));
                     }
 
                     @Override
-                    public int maxQueries()
-                    {
+                    public int maxQueries() {
                         return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_MAX_QUERIES", String.valueOf(addressResolverAnnotation.maxQueries())));
                     }
 
                     @Override
-                    public boolean rdFlag()
-                    {
+                    public boolean rdFlag() {
                         return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_RD_FLAG", String.valueOf(addressResolverAnnotation.rdFlag())));
                     }
 
                     @Override
-                    public String[] searchDomains()
-                    {
+                    public String[] searchDomains() {
                         String domainsStr = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_SEARCH_DOMAINS", String.join(",", addressResolverAnnotation.searchDomains()));
                         return domainsStr.isBlank() ? new String[0] : domainsStr.split(",");
                     }
 
                     @Override
-                    public int ndots()
-                    {
+                    public int ndots() {
                         return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_NDOTS", String.valueOf(addressResolverAnnotation.ndots())));
                     }
 
                     @Override
-                    public boolean optResourceEnabled()
-                    {
+                    public boolean optResourceEnabled() {
                         return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_OPT_RESOURCE_ENABLED", String.valueOf(addressResolverAnnotation.optResourceEnabled())));
                     }
 
                     @Override
-                    public boolean roundRobinInetAddress()
-                    {
+                    public boolean roundRobinInetAddress() {
                         return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_ROUND_ROBIN", String.valueOf(addressResolverAnnotation.roundRobinInetAddress())));
                     }
                 };
@@ -550,24 +483,20 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     }
 
 
-    public static Vertx getVertx()
-    {
-        if (vertx == null)
-        {
+    public static Vertx getVertx() {
+        if (vertx == null) {
             new VertXPreStartup().onStartup();
         }
         return vertx;
     }
 
     @Override
-    public void onDestroy()
-    {
+    public void onDestroy() {
         vertx.close();
     }
 
     @Override
-    public Integer sortOrder()
-    {
-        return Integer.MIN_VALUE + 50;
+    public Integer sortOrder() {
+        return Integer.MIN_VALUE + 38;
     }
 }

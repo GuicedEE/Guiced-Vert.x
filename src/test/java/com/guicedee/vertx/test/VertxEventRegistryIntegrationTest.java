@@ -1,5 +1,7 @@
 package com.guicedee.vertx.test;
 
+import com.guicedee.client.IGuiceContext;
+import com.guicedee.client.utils.LogUtils;
 import com.guicedee.vertx.VertxEventDefinition;
 import com.guicedee.vertx.VertxEventOptions;
 import com.guicedee.vertx.VertxEventPublisher;
@@ -8,6 +10,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.Message;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.*;
 
 import java.time.Duration;
@@ -34,8 +37,9 @@ public class VertxEventRegistryIntegrationTest {
     @BeforeAll
     public void beforeAll() {
         // Boot Vert.x and auto-register consumers per VertXPreStartup
-        VertXPreStartup pre = new VertXPreStartup();
-        pre.onStartup();
+        LogUtils.addHighlightedConsoleLogger(Level.DEBUG);
+        IGuiceContext.instance().getConfig().setFieldScanning(true).setClasspathScanning(true).setAnnotationScanning(true).setIgnoreClassVisibility(true);
+        IGuiceContext.instance().inject();
         vertx = VertXPreStartup.getVertx();
         assertNotNull(vertx, "Vertx must be initialized for tests");
     }
@@ -100,8 +104,12 @@ public class VertxEventRegistryIntegrationTest {
     )
     public static class SendReplyConsumer {
         public String consume(Message<String> message) {
-            // Record execution context (worker vs event loop)
-            lastWasWorker.set(Vertx.currentContext() != null && Vertx.currentContext().isWorkerContext());
+            // Record execution context - in Vert.x 5 with executeBlocking,
+            // the code runs on a worker thread but the context may still report as event loop context.
+            // Check the thread name to verify we're on a worker thread.
+            String threadName = Thread.currentThread().getName();
+            boolean isWorkerThread = threadName.contains("worker");
+            lastWasWorker.set(isWorkerThread);
             return "ACK:" + message.body();
         }
     }

@@ -1,4 +1,4 @@
-package com.guicedee.vertx;
+package com.guicedee.vertx.test;
 
 import com.guicedee.client.IGuiceContext;
 import org.junit.jupiter.api.Test;

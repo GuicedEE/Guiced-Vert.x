@@ -2,6 +2,7 @@ import com.guicedee.client.services.lifecycle.IGuiceModule;
 import com.guicedee.client.services.lifecycle.IGuicePreDestroy;
 import com.guicedee.client.services.lifecycle.IGuicePreStartup;
 import com.guicedee.vertx.*;
+import com.guicedee.vertx.implementations.VertxClassScanConfig;
 import com.guicedee.vertx.spi.*;
 
 module com.guicedee.vertx {
@@ -36,6 +37,7 @@ module com.guicedee.vertx {
     provides IGuiceModule with VertXModule;
     //provides io.vertx.core.spi.VertxThreadFactory with InterceptingThreadFactory;
     //provides io.vertx.core.spi.VertxThreadFactory with CallScopeAwareVertxThreadFactory;
+    provides com.guicedee.client.services.lifecycle.IGuiceConfigurator with VertxClassScanConfig;
 
     uses com.guicedee.vertx.spi.VertxConfigurator;
     uses VerticleStartup;

@@ -66,6 +66,12 @@ public class VerticleBuilder
                                 //noinspection unchecked
                                 entry.start(startPromise, vertx, this, "");
                             });
+                    // Ensure the verticle deployment completes even if startups are synchronous
+                    // or do not explicitly complete the promise.
+                    if (!startPromise.future().isComplete())
+                    {
+                        startPromise.tryComplete();
+                    }
                     //super.start(startPromise);
                 }
             });
@@ -113,6 +119,11 @@ public class VerticleBuilder
                                     //noinspection unchecked
                                     entry.start(startPromise, vertx, this, classInfo.getPackageName());
                                 });
+                        // Ensure deployment completes even if startups don't complete the promise
+                        if (!startPromise.future().isComplete())
+                        {
+                            startPromise.tryComplete();
+                        }
                         //super.start(startPromise);
                     }
                 });
@@ -135,6 +146,11 @@ public class VerticleBuilder
                                 //noinspection unchecked
                                 entry.start(startPromise, vertx, this, "");
                             });
+                    // Ensure deployment completes even if startups are synchronous
+                    if (!startPromise.future().isComplete())
+                    {
+                        startPromise.tryComplete();
+                    }
                 }
             });
 

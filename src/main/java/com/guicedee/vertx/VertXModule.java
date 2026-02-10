@@ -1,9 +1,6 @@
 package com.guicedee.vertx;
 
-import com.google.inject.Key;
-import com.google.inject.PrivateModule;
-import com.google.inject.Provider;
-import com.google.inject.Singleton;
+import com.google.inject.*;
 import com.google.inject.name.Names;
 import com.guicedee.client.services.lifecycle.IGuiceModule;
 import com.guicedee.vertx.spi.VertXPreStartup;
@@ -24,7 +21,7 @@ import java.util.Set;
  * generic-aware publishers produced via the registry metadata.
  */
 @Log4j2
-public class VertXModule extends PrivateModule implements IGuiceModule<VertXModule>
+public class VertXModule extends AbstractModule implements IGuiceModule<VertXModule>
 {
     // Set to track which addresses have already been bound
     private static final Set<String> boundAddresses = new HashSet<>();
@@ -43,7 +40,7 @@ public class VertXModule extends PrivateModule implements IGuiceModule<VertXModu
 
         // Bind the Vertx instance
         bind(Vertx.class).toInstance(VertXPreStartup.getVertx());
-        expose(Vertx.class);
+       // expose(Vertx.class);
 
         // VertxEventRegistry is initialized in VertXPreStartup
 
@@ -90,7 +87,7 @@ public class VertXModule extends PrivateModule implements IGuiceModule<VertXModu
                 bind(clazz).in(Singleton.class);
 
                 // Expose the binding
-                expose(clazz);
+             //   expose(clazz);
             } else {
                 log.trace("Skipping already bound method-based consumer class for address: {}", address);
             }
@@ -141,8 +138,8 @@ public class VertXModule extends PrivateModule implements IGuiceModule<VertXModu
                 // Expose the bindings
                 //expose(genericKey);
                 //expose(specificKey);
-                expose(gKey);
-                expose(Key.get(VertxEventPublisher.class, Names.named(address)));
+                //expose(gKey);
+              //  expose(Key.get(VertxEventPublisher.class, Names.named(address)));
             } else {
                 log.info("Skipping already bound VertxEventPublisher for address: {}", address);
             }
