@@ -136,7 +136,7 @@ public class VertxEventRegistryIntegrationTest {
 
     // Default options for test publishers (values not used by publisher methods)
     private static class DefaultOptions implements VertxEventOptions {
-        @Override public boolean localOnly() { return true; }
+        @Override public boolean localOnly() { return false; }
         @Override public boolean autobind() { return true; }
         @Override public int consumerCount() { return 1; }
         @Override public boolean worker() { return false; }

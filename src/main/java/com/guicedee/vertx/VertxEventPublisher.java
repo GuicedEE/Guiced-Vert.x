@@ -13,6 +13,11 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
 import java.lang.reflect.Type;
+import java.util.ArrayDeque;
+import java.util.Objects;
+import java.util.Queue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Publisher for Vertx event bus messages
@@ -25,6 +30,16 @@ public class VertxEventPublisher<T> {
     private final Vertx vertx;
     private final String address;
     private final VertxEventDefinition eventDefinition;
+
+    // Throttling configuration (per-publisher instance)
+    private final long throttleMs;
+    private final int warnThreshold;
+
+    // Simple FIFO queue and periodic drain (1 message per throttleMs)
+    private final Queue<Queued> queue = new ArrayDeque<>();
+    private final AtomicBoolean draining = new AtomicBoolean(false);
+    private volatile long timerId = -1L;
+    private final AtomicInteger lastWarnBucket = new AtomicInteger(0);
 
     /**
      * The reference type of the generic parameter T
@@ -49,6 +64,23 @@ public class VertxEventPublisher<T> {
         this.address = address;
         this.eventDefinition = eventDefinition;
         this.referenceType = referenceType;
+
+        // Resolve throttle and warning thresholds (env or system properties), with per-address override support
+        String normalized = normalizeAddress(address);
+        this.throttleMs = resolveLong(
+                firstNonBlank(
+                        sysOrEnv("VERTX_PUBLISH_THROTTLE_MS_" + normalized),
+                        sysOrEnv("VERTX_PUBLISH_THROTTLE_MS")
+                ),
+                50L
+        );
+        this.warnThreshold = (int) resolveLong(
+                firstNonBlank(
+                        sysOrEnv("VERTX_PUBLISH_QUEUE_WARN_" + normalized),
+                        sysOrEnv("VERTX_PUBLISH_QUEUE_WARN")
+                ),
+                1000L
+        );
     }
 
     /**
@@ -73,18 +105,12 @@ public class VertxEventPublisher<T> {
      */
     public void publish(T message) {
         log.trace("Publishing message to address {} - {}", address, message);
-        try {
-            String codecName = getCodecName(message);
-            if (codecName != null) {
-                DeliveryOptions options = new DeliveryOptions().setCodecName(codecName);
-                vertx.eventBus().publish(address, message, options);
-            } else {
-                vertx.eventBus().publish(address, message);
-            }
-        } catch (Exception e) {
-            log.error("Error serializing message to JSON", e);
-            throw new RuntimeException("Error publishing message", e);
+        if (throttleMs <= 0) {
+            // Bypass throttle completely
+            doImmediatePublish(message, null);
+            return;
         }
+        enqueue(new Queued(true, message, null));
     }
 
     /**
@@ -94,18 +120,11 @@ public class VertxEventPublisher<T> {
      */
     public void send(T message) {
         log.trace("Fire-and-forget send to address {} - {}", address, message);
-        try {
-            String codecName = getCodecName(message);
-            if (codecName != null) {
-                DeliveryOptions options = new DeliveryOptions().setCodecName(codecName);
-                vertx.eventBus().send(address, message, options);
-            } else {
-                vertx.eventBus().send(address, message);
-            }
-        } catch (Exception e) {
-            log.error("Error sending message", e);
-            throw new RuntimeException("Error sending message", e);
+        if (throttleMs <= 0) {
+            doImmediateSend(message, null);
+            return;
         }
+        enqueue(new Queued(false, message, null));
     }
 
     /**
@@ -116,18 +135,13 @@ public class VertxEventPublisher<T> {
      */
     public void publish(T message, DeliveryOptions options) {
         log.trace("Publishing message to address {} with options - {}", address, message);
-        try {
-            // Set codec name if not already set and message is not a standard Vertx type
-            String codecName = getCodecName(message);
-            if (codecName != null && options.getCodecName() == null) {
-                options.setCodecName(codecName);
-            }
-
-            vertx.eventBus().publish(address, message, options);
-        } catch (Exception e) {
-            log.error("Error serializing message to JSON", e);
-            throw new RuntimeException("Error publishing message with options", e);
+        if (throttleMs <= 0) {
+            doImmediatePublish(message, options);
+            return;
         }
+        // Copy options to avoid external mutation issues
+        DeliveryOptions opts = cloneOptionsWithCodec(options, message);
+        enqueue(new Queued(true, message, opts));
     }
 
     /**
@@ -157,18 +171,12 @@ public class VertxEventPublisher<T> {
      */
     public void send(T message, DeliveryOptions options) {
         log.trace("Fire-and-forget send to address {} with options - {}", address, message);
-        try {
-            if (options == null) options = new DeliveryOptions();
-            // Set codec name if not already set and message is not a standard Vertx type
-            String codecName = getCodecName(message);
-            if (codecName != null && options.getCodecName() == null) {
-                options.setCodecName(codecName);
-            }
-            vertx.eventBus().send(address, message, options);
-        } catch (Exception e) {
-            log.error("Error sending message with options", e);
-            throw new RuntimeException("Error sending message with options", e);
+        if (throttleMs <= 0) {
+            doImmediateSend(message, options);
+            return;
         }
+        DeliveryOptions opts = cloneOptionsWithCodec(options, message);
+        enqueue(new Queued(false, message, opts));
     }
 
     /**
@@ -245,6 +253,163 @@ public class VertxEventPublisher<T> {
         DeliveryOptions options = new DeliveryOptions();
         if (timeoutMs > 0) options.setSendTimeout(timeoutMs);
         return request(message, options);
+    }
+
+    // ============ Internal helpers (throttle & immediate dispatch) ============
+
+    private void enqueue(Queued q) {
+        Objects.requireNonNull(q);
+        synchronized (queue) {
+            queue.add(q);
+            // Warning strategy when queue grows beyond threshold (no drops)
+            if (warnThreshold > 0 && queue.size() > warnThreshold) {
+                int bucket = (int) Math.max(1, Math.floorDiv(queue.size(), Math.max(1, warnThreshold)));
+                int prev = lastWarnBucket.get();
+                if (bucket > prev && lastWarnBucket.compareAndSet(prev, bucket)) {
+                    log.warn("Publisher queue for address '{}' is growing (size={}, threshold={}). Messages are throttled to one every {} ms.",
+                            address, queue.size(), warnThreshold, throttleMs);
+                }
+            }
+
+            // Start periodic drain if not running
+            if (draining.compareAndSet(false, true)) {
+                timerId = vertx.setPeriodic(throttleMs, tid -> drainOne());
+            }
+        }
+    }
+
+    private void drainOne() {
+        Queued next;
+        synchronized (queue) {
+            next = queue.poll();
+            if (next == null) {
+                // Stop timer, nothing to drain
+                if (timerId != -1L) {
+                    vertx.cancelTimer(timerId);
+                    timerId = -1L;
+                }
+                draining.set(false);
+                lastWarnBucket.set(0);
+                return;
+            }
+        }
+
+        try {
+            if (next.publish) {
+                if (next.options != null) {
+                    vertx.eventBus().publish(address, next.message, next.options);
+                } else {
+                    String codec = getCodecName(next.message);
+                    if (codec != null) {
+                        vertx.eventBus().publish(address, next.message, new DeliveryOptions().setCodecName(codec));
+                    } else {
+                        vertx.eventBus().publish(address, next.message);
+                    }
+                }
+            } else {
+                if (next.options != null) {
+                    vertx.eventBus().send(address, next.message, next.options);
+                } else {
+                    String codec = getCodecName(next.message);
+                    if (codec != null) {
+                        vertx.eventBus().send(address, next.message, new DeliveryOptions().setCodecName(codec));
+                    } else {
+                        vertx.eventBus().send(address, next.message);
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            log.error("Error dispatching throttled message on '{}': {}", address, t.getMessage(), t);
+        }
+    }
+
+    private void doImmediatePublish(T message, DeliveryOptions options) {
+        try {
+            if (options == null) {
+                String codecName = getCodecName(message);
+                if (codecName != null) {
+                    options = new DeliveryOptions().setCodecName(codecName);
+                    vertx.eventBus().publish(address, message, options);
+                } else {
+                    vertx.eventBus().publish(address, message);
+                }
+            } else {
+                DeliveryOptions opts = cloneOptionsWithCodec(options, message);
+                vertx.eventBus().publish(address, message, opts);
+            }
+        } catch (Exception e) {
+            log.error("Error serializing message to JSON", e);
+            throw new RuntimeException("Error publishing message", e);
+        }
+    }
+
+    private void doImmediateSend(T message, DeliveryOptions options) {
+        try {
+            if (options == null) {
+                String codecName = getCodecName(message);
+                if (codecName != null) {
+                    options = new DeliveryOptions().setCodecName(codecName);
+                    vertx.eventBus().send(address, message, options);
+                } else {
+                    vertx.eventBus().send(address, message);
+                }
+            } else {
+                DeliveryOptions opts = cloneOptionsWithCodec(options, message);
+                vertx.eventBus().send(address, message, opts);
+            }
+        } catch (Exception e) {
+            log.error("Error sending message", e);
+            throw new RuntimeException("Error sending message", e);
+        }
+    }
+
+    private DeliveryOptions cloneOptionsWithCodec(DeliveryOptions options, Object message) {
+        DeliveryOptions src = options == null ? new DeliveryOptions() : options;
+        DeliveryOptions dst = new DeliveryOptions()
+                .setCodecName(src.getCodecName())
+                .setSendTimeout(src.getSendTimeout())
+                .setLocalOnly(src.isLocalOnly());
+        if (src.getHeaders() != null) {
+            src.getHeaders().forEach(entry -> dst.addHeader(entry.getKey(), entry.getValue()));
+        }
+        String codecName = getCodecName(message);
+        if (codecName != null && dst.getCodecName() == null) {
+            dst.setCodecName(codecName);
+        }
+        return dst;
+    }
+
+    private static String sysOrEnv(String key) {
+        String v = System.getProperty(key);
+        if (v == null || v.isEmpty()) v = System.getenv(key);
+        return v;
+    }
+
+    private static String firstNonBlank(String a, String b) {
+        if (a != null && !a.isBlank()) return a;
+        if (b != null && !b.isBlank()) return b;
+        return null;
+    }
+
+    private static long resolveLong(String raw, long def) {
+        if (raw == null || raw.isBlank()) return def;
+        try { return Long.parseLong(raw.trim()); } catch (NumberFormatException e) { return def; }
+    }
+
+    private static String normalizeAddress(String addr) {
+        if (addr == null) return "";
+        return addr.toUpperCase().replace('.', '_').replace('-', '_');
+    }
+
+    private static final class Queued {
+        final boolean publish;
+        final Object message;
+        final DeliveryOptions options;
+        Queued(boolean publish, Object message, DeliveryOptions options) {
+            this.publish = publish;
+            this.message = message;
+            this.options = options;
+        }
     }
 
     /**

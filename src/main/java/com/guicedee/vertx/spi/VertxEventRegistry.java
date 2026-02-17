@@ -309,36 +309,6 @@ public class VertxEventRegistry {
                                 Type genericType = field.getGenericType();
                                 eventPublisherKeys.put(address, createGuiceKey(genericType, address));
                             }
-
-
-                            /*
-                            if (genericType instanceof ParameterizedType) {
-                                ParameterizedType paramType = (ParameterizedType) genericType;
-                                Type[] typeArguments = paramType.getActualTypeArguments();
-                                if (typeArguments.length > 0) {
-                                    Type typeArg = typeArguments[0];
-
-                                    // Create TypeLiteral for complex generic types
-                                    TypeLiteral<?> typeLiteral = createTypeLiteral(typeArg);
-                                    Class<?> rawType = getRawType(typeArg);
-
-                                    log.info("Found generic type {} (raw: {}) for publisher at address: {}",
-                                            typeArg.getTypeName(), rawType.getName(), address);
-
-                                    // Store both the TypeLiteral for Guice binding and raw type for convenience
-                                    eventPublisherTypeLiterals.put(address, typeLiteral);
-                                    eventPublisherGenericTypes.put(address, rawType);
-                                    eventPublisherKeys.put(address, createGuiceKey(typeArg,address));
-                                } else {
-                                    log.warn("No type arguments found for publisher at address: {}", address);
-                                    eventPublisherGenericTypes.put(address, Object.class);
-                                    eventPublisherTypeLiterals.put(address, TypeLiteral.get(Object.class));
-                                }
-                            } else {
-                                log.warn("No generic type information found for publisher at address: {}", address);
-                                eventPublisherGenericTypes.put(address, Object.class);
-                                eventPublisherTypeLiterals.put(address, TypeLiteral.get(Object.class));
-                            }*/
                         }
                     }
                 }
@@ -348,93 +318,13 @@ public class VertxEventRegistry {
         }
     }
 
-    /**
-     * Registers event consumers with the Vertx event bus
-     */
-    public static void registerEventConsumers() {
-        if (consumersRegistered) {
-            log.debug("Consumers already registered globally, skipping registerEventConsumers()");
-            return;
-        }
-
-        Vertx vertx = VertXPreStartup.getVertx();
-
-        log.info("registerEventConsumers called. eventConsumerDefinitions size={}, eventConsumerClass size={}, eventConsumerMethods size={}",
-                eventConsumerDefinitions.size(), eventConsumerClass.size(), eventConsumerMethods.size());
-
-        // Register class-based consumers
-        eventConsumerDefinitions.forEach((address, eventDefinition) -> {
-            if (eventDefinition.options().autobind() && eventConsumerClass.containsKey(address)) {
-                // Skip if already registered
-                if (registeredAddresses.contains(address)) {
-                    log.debug("Consumer for address {} already registered, skipping", address);
-                    return;
-                }
-
-                log.debug("Registering class-based event consumer for address: {}", address);
-
-                int instances = Math.max(1, eventDefinition.options().instances() > 0 ? eventDefinition.options().instances() : eventDefinition.options().consumerCount());
-                boolean local = eventDefinition.options().localOnly();
-                for (int i = 0; i < instances; i++) {
-                    Method consumeMethod;
-                    Class<?> consumerClass = eventConsumerClass.get(address);
-                    try {
-                        consumeMethod = consumerClass.getMethod("consume", Message.class);
-                    } catch (Exception e) {
-                        log.error("No consume(Message) method found for class {}", consumerClass.getName());
-                        continue;
-                    }
-
-                    MessageConsumer<Object> mc = local
-                            ? vertx.eventBus().localConsumer(address, message -> dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition))
-                            : vertx.eventBus().consumer(address, message -> dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition));
-
-                    // maxBufferedMessages advisory; MessageConsumer#setMaxBufferedMessages may not be available in all Vert.x versions
-                    // if (eventDefinition.options().maxBufferedMessages() > 0) {
-                    //     mc.setMaxBufferedMessages(eventDefinition.options().maxBufferedMessages());
-                    // }
-                }
-                // Mark this address as registered
-                registeredAddresses.add(address);
-            }
-        });
-
-        // Register method-based consumers
-        eventConsumerDefinitions.forEach((address, eventDefinition) -> {
-            if (eventDefinition.options().autobind() && eventConsumerMethods.containsKey(address)) {
-                // Skip if already registered
-                if (registeredAddresses.contains(address)) {
-                    log.debug("Method consumer for address {} already registered, skipping", address);
-                    return;
-                }
-
-                log.debug("Registering method-based event consumer for address: {}", address);
-                Method method = eventConsumerMethods.get(address);
-                Class<?> methodClass = eventConsumerMethodClasses.get(address);
-
-                int instances = Math.max(1, eventDefinition.options().instances() > 0 ? eventDefinition.options().instances() : eventDefinition.options().consumerCount());
-                boolean local = eventDefinition.options().localOnly();
-                for (int i = 0; i < instances; i++) {
-                    MessageConsumer<Object> mc = local
-                            ? vertx.eventBus().localConsumer(address, message -> dispatch(vertx, message, method, methodClass, eventDefinition))
-                            : vertx.eventBus().consumer(address, message -> dispatch(vertx, message, method, methodClass, eventDefinition));
-                    // Note: setMaxBufferedMessages is not available on all Vert.x targets; advisory only
-                }
-                // Mark this address as registered
-                registeredAddresses.add(address);
-            }
-        });
-
-        // Mark that global registration is complete
-        consumersRegistered = true;
-    }
 
     /**
      * Registers event consumers filtered by assigned package or excluded prefixes, for per-verticle startup.
      *
-     * @param assignedPackage The package assigned to the current verticle. If non-empty, only consumers whose
-     *                        classes are under this package are registered. If empty, only consumers NOT under any
-     *                        of the excluded prefixes are registered (default verticle).
+     * @param assignedPackage  The package assigned to the current verticle. If non-empty, only consumers whose
+     *                         classes are under this package are registered. If empty, only consumers NOT under any
+     *                         of the excluded prefixes are registered (default verticle).
      * @param excludedPrefixes Package prefixes that are handled by annotated verticles and should be excluded from
      *                         the default verticle registration. May be null or empty.
      */
@@ -510,9 +400,37 @@ public class VertxEventRegistry {
                 boolean local = eventDefinition.options().localOnly();
                 for (int i = 0; i < instances; i++) {
                     if (local) {
-                        vertx.eventBus().localConsumer(address, message -> dispatch(vertx, message, method, methodClass, eventDefinition));
+                        vertx.eventBus().localConsumer(address, message ->
+                                dispatch(vertx, message, method, methodClass, eventDefinition)
+                                        .subscribe().with(
+                                                ignored -> { /* no-op */ },
+                                                ex -> {
+                                                    Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
+                                                            ? ex.getCause() : ex;
+                                                    log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
+                                                    try {
+                                                        message.fail(500, String.valueOf(cause.getMessage()));
+                                                    } catch (Throwable ignored2) {
+                                                    }
+                                                }
+                                        )
+                        );
                     } else {
-                        vertx.eventBus().consumer(address, message -> dispatch(vertx, message, method, methodClass, eventDefinition));
+                        vertx.eventBus().consumer(address, message ->
+                                dispatch(vertx, message, method, methodClass, eventDefinition)
+                                        .subscribe().with(
+                                                ignored -> { /* no-op */ },
+                                                ex -> {
+                                                    Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
+                                                            ? ex.getCause() : ex;
+                                                    log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
+                                                    try {
+                                                        message.fail(500, String.valueOf(cause.getMessage()));
+                                                    } catch (Throwable ignored2) {
+                                                    }
+                                                }
+                                        )
+                        );
                     }
                 }
                 // Mark this address as registered
@@ -524,7 +442,7 @@ public class VertxEventRegistry {
     /**
      * Dispatches a received message according to event options (e.g., worker pool)
      */
-    private static void dispatch(Vertx vertx, Message<?> message, Method method, Class<?> methodClass, VertxEventDefinition eventDefinition) {
+    public static Uni<Void> dispatch(Vertx vertx, Message<?> message, Method method, Class<?> methodClass, VertxEventDefinition eventDefinition) {
         try {
             boolean isWorker = eventDefinition != null && eventDefinition.options().worker();
             log.debug("Dispatching message on address {}, worker={}", message.address(), isWorker);
@@ -533,33 +451,43 @@ public class VertxEventRegistry {
                 String pool = eventDefinition.options().workerPool();
                 if (pool != null && !pool.isEmpty()) {
                     int size = eventDefinition.options().workerPoolSize() > 0 ? eventDefinition.options().workerPoolSize() : 20;
-                    WorkerExecutor exec = workerExecutors.computeIfAbsent(pool, name -> vertx.createSharedWorkerExecutor(name, size));
-                    exec.executeBlocking(() -> {
+
+                    WorkerExecutor exec = workerExecutors.computeIfAbsent(eventDefinition.value(), name -> vertx.createSharedWorkerExecutor(eventDefinition.value(), size));
+                    // Execute the call-scope setup on the worker, get Uni<Void> back, then flatten
+                    Future<Uni<Void>> fut = exec.executeBlocking(() -> {
                         log.debug("Executing on named worker pool: {}", pool);
-                        return withCallScope(() -> {
-                            handleMethodBasedConsumer(message, method, methodClass);
-                            return null;
-                        }, CallScopeSource.VertXConsumer);
+                        return withCallScope(() -> handleMethodBasedConsumer(message, method, methodClass), CallScopeSource.VertXConsumer);
                     }, false);
+                    return Uni.createFrom().completionStage(
+                                    fut.toCompletionStage()
+                                            .thenCompose(u -> u.subscribe().asCompletionStage())
+                            )
+                            .onFailure().invoke(ex -> log.error("Worker dispatch setup failed for {}: {}", message.address(), ex.getMessage(), ex));
                 } else {
-                    vertx.executeBlocking(() -> {
+                    var currentContext = Vertx.currentContext();
+                    Future<Uni<Void>> fut = currentContext.executeBlocking(() -> {
                         log.debug("Executing on default worker pool");
-                        return withCallScope(() -> {
-                            handleMethodBasedConsumer(message, method, methodClass);
-                            return null;
-                        }, CallScopeSource.VertXConsumer);
+                        return withCallScope(() -> handleMethodBasedConsumer(message, method, methodClass), CallScopeSource.VertXConsumer);
                     }, false);
+                    return Uni.createFrom().completionStage(
+                                    fut.toCompletionStage()
+                                            .thenCompose(u -> u.subscribe().asCompletionStage())
+                            )
+                            .onFailure().invoke(ex -> log.error("Worker dispatch setup failed for {}: {}", message.address(), ex.getMessage(), ex));
                 }
             } else {
-                // Ensure CallScope is active even for non-worker consumers
-                withCallScope(() -> {
-                    handleMethodBasedConsumer(message, method, methodClass);
-                    return null;
-                }, CallScopeSource.VertXConsumer);
+                // Defer so the CallScope is established at subscription time
+                return Uni.createFrom().deferred(() ->
+                        (Uni<Void>) withCallScope(() -> handleMethodBasedConsumer(message, method, methodClass), CallScopeSource.VertXConsumer)
+                );
             }
         } catch (Throwable t) {
             log.error("Error dispatching message on address {}: {}", message.address(), t.getMessage(), t);
-            try { message.fail(500, t.getMessage()); } catch (Throwable ignored) {}
+            try {
+                message.fail(500, t.getMessage());
+            } catch (Throwable ignored) {
+            }
+            return Uni.createFrom().failure(t);
         }
     }
 
@@ -589,30 +517,111 @@ public class VertxEventRegistry {
     /**
      * Handles a message by invoking a method-based consumer
      */
-    private static void handleMethodBasedConsumer(Message<?> message, Method method, Class<?> methodClass) {
-        try {
-            // Obtain target instance from Guice
-            Object instance = IGuiceContext.get(methodClass);
+    private static Uni<Void> handleMethodBasedConsumer(Message<?> message, Method method, Class<?> methodClass) {
+        // Execute the consumer invocation within a Uni so interceptors/scopes can participate.
+        return Uni.createFrom().deferred(() -> {
+                    // Obtain target instance from Guice
+                    Object instance = IGuiceContext.get(methodClass);
 
-            // Prepare parameters
-            Object[] params = prepareMethodParameters(method, message);
+                    // Prepare parameters
+                    Object[] params = prepareMethodParameters(method, message);
 
-            // Ensure source is correctly set for the current call scope
-            CallScopeProperties csp = IGuiceContext.get(CallScopeProperties.class);
-            csp.setSource(CallScopeSource.VertXConsumer);
+                    // Ensure source is correctly set for the current call scope
+                    CallScopeProperties csp = IGuiceContext.get(CallScopeProperties.class);
+                    csp.setSource(CallScopeSource.VertXConsumer);
 
-            // Directly invoke on the current thread (event-loop or worker depending on dispatch)
-            Object result = method.invoke(instance, params);
+                    // Invoke on the current thread (event-loop or worker depending on dispatch)
+                    Object invocationResult;
+                    try {
+                        invocationResult = method.invoke(instance, params);
+                    } catch (IllegalAccessException | InvocationTargetException e) {
+                        throw new RuntimeException(e);
+                    }
 
-            // Handle the result
-            handleMethodResult(result, message);
-        } catch (Exception e) {
-            log.error("Error invoking method-based consumer {}.{}()", methodClass.getSimpleName(), method.getName(), e);
-            try {
-                message.fail(500, e.getMessage());
-            } catch (Throwable ignored) {
-            }
-        }
+                    // If the invoked method already returned a Uni, integrate it into the chain.
+                    if (invocationResult instanceof Uni) {
+                        @SuppressWarnings("unchecked")
+                        Uni<Object> uniResult = (Uni<Object>) invocationResult;
+                        return uniResult
+                                .onItem().invoke(res -> {
+                                    // Reply with the resulting item (may be null)
+                                    try {
+                                        message.reply(res);
+                                    } catch (Throwable t) {
+                                        log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
+                                    }
+                                })
+                                .onFailure().invoke(ex -> {
+                                    try {
+                                        message.fail(500, String.valueOf(ex.getMessage()));
+                                    } catch (Throwable ignored) {
+                                    }
+                                })
+                                .replaceWithVoid();
+                    }
+
+                    // Handle Vert.x Future result by converting to Uni
+                    if (invocationResult instanceof Future) {
+                        Future<?> fut = (Future<?>) invocationResult;
+                        return Uni.createFrom().completionStage(fut.toCompletionStage())
+                                .onItem().invoke(res -> {
+                                    try {
+                                        message.reply(res);
+                                    } catch (Throwable t) {
+                                        log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
+                                    }
+                                })
+                                .onFailure().invoke(ex -> {
+                                    try {
+                                        message.fail(500, String.valueOf(ex.getMessage()));
+                                    } catch (Throwable ignored) {
+                                    }
+                                })
+                                .replaceWithVoid();
+                    }
+
+                    // Handle CompletableFuture similarly
+                    if (invocationResult instanceof java.util.concurrent.CompletableFuture) {
+                        java.util.concurrent.CompletableFuture<?> cf = (java.util.concurrent.CompletableFuture<?>) invocationResult;
+                        return Uni.createFrom().completionStage(cf)
+                                .onItem().invoke(res -> {
+                                    try {
+                                        message.reply(res);
+                                    } catch (Throwable t) {
+                                        log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
+                                    }
+                                })
+                                .onFailure().invoke(ex -> {
+                                    try {
+                                        message.fail(500, String.valueOf(ex.getMessage()));
+                                    } catch (Throwable ignored) {
+                                    }
+                                })
+                                .replaceWithVoid();
+                    }
+
+                    // Synchronous result
+                    if (invocationResult == null) {
+                        // No reply for void
+                        return Uni.createFrom().voidItem();
+                    } else {
+                        try {
+                            message.reply(invocationResult);
+                        } catch (Throwable t) {
+                            log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
+                        }
+                        return Uni.createFrom().voidItem();
+                    }
+                })
+                .onFailure().invoke(ex -> {
+                    Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
+                            ? ex.getCause() : ex;
+                    log.error("Error invoking method-based consumer {}.{}()", methodClass.getSimpleName(), method.getName(), cause);
+                    try {
+                        message.fail(500, String.valueOf(cause.getMessage()));
+                    } catch (Throwable ignored) {
+                    }
+                });
     }
 
     /**
@@ -681,45 +690,6 @@ public class VertxEventRegistry {
                 Number.class.isAssignableFrom(type) ||
                 Boolean.class.equals(type) ||
                 Character.class.equals(type);
-    }
-
-    /**
-     * Handles the result of a method invocation
-     */
-    private static void handleMethodResult(Object result, Message<?> message) {
-        if (result == null) {
-            // Void method, no reply needed
-            return;
-        }
-
-        if (result instanceof Future) {
-            // Handle Future result
-            ((Future<?>) result).onComplete(ar -> {
-                if (ar.succeeded()) {
-                    message.reply(ar.result());
-                } else {
-                    message.fail(500, ar.cause().getMessage());
-                }
-            });
-        } else if (result instanceof CompletableFuture) {
-            // Handle CompletableFuture result
-            ((CompletableFuture<?>) result).whenComplete((res, ex) -> {
-                if (ex == null) {
-                    message.reply(res);
-                } else {
-                    message.fail(500, ex.getMessage());
-                }
-            });
-        } else if (result instanceof Uni) {
-            // Handle Uni result
-            ((Uni<?>) result).subscribe().with(
-                res -> message.reply(res),
-                ex -> message.fail(500, ex.getMessage())
-            );
-        } else {
-            // Handle direct result
-            message.reply(result);
-        }
     }
 
     /**
@@ -815,48 +785,6 @@ public class VertxEventRegistry {
                 return VertxEventDefinition.class;
             }
         });
-    }
-
-    /**
-     * Creates a TypeLiteral from a Type, handling complex generic types
-     */
-    @SuppressWarnings("unchecked")
-    private static TypeLiteral<?> createTypeLiteral(Type type) {
-        return (TypeLiteral<?>) TypeLiteral.get(type);
-    }
-
-    /**
-     * Extracts the raw type from any Type, including parameterized types
-     */
-    private static Class<?> getRawType(Type type) {
-        if (type instanceof Class) {
-            return (Class<?>) type;
-        } else if (type instanceof ParameterizedType) {
-            ParameterizedType paramType = (ParameterizedType) type;
-            return (Class<?>) paramType.getRawType();
-        } else if (type instanceof GenericArrayType) {
-            GenericArrayType arrayType = (GenericArrayType) type;
-            Class<?> componentClass = getRawType(arrayType.getGenericComponentType());
-            return Array.newInstance(componentClass, 0).getClass();
-        } else if (type instanceof WildcardType) {
-            WildcardType wildcardType = (WildcardType) type;
-            Type[] upperBounds = wildcardType.getUpperBounds();
-            if (upperBounds.length > 0) {
-                return getRawType(upperBounds[0]);
-            }
-            return Object.class;
-        } else if (type instanceof TypeVariable) {
-            TypeVariable<?> typeVar = (TypeVariable<?>) type;
-            Type[] bounds = typeVar.getBounds();
-            if (bounds.length > 0) {
-                return getRawType(bounds[0]);
-            }
-            return Object.class;
-        }
-
-        // Fallback for any other type
-        log.warn("Unknown type encountered: {}, defaulting to Object", type.getClass().getName());
-        return Object.class;
     }
 
     /**

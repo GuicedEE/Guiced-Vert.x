@@ -56,7 +56,19 @@ public class DynamicCodec<T> implements MessageCodec<T, T> {
 
     @Override
     public T transform(T object) {
-        return object;
+        if (object == null) {
+            return null;
+        }
+        try {
+            // Perform a deep copy by serializing and deserializing using the shared ObjectMapper
+            byte[] json = IJsonRepresentation.getObjectMapper().writeValueAsBytes(object);
+            return IJsonRepresentation.getObjectMapper()
+                    .readerFor(type)
+                    .readValue(json);
+        } catch (Exception e) {
+            log.error("Error transforming object via serialize/deserialize for codec {}", codecName, e);
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

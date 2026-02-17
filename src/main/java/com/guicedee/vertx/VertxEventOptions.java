@@ -14,7 +14,7 @@ public @interface VertxEventOptions {
     /**
      * @return Whether to register the consumer with a local-only handler
      */
-    boolean localOnly() default true;
+    boolean localOnly() default false;
 
     /**
      * @return Auto start/bind the consumer on startup, otherwise make an injection call to start
