@@ -123,6 +123,8 @@
                     <compilerArgs>
                         <arg>--add-exports</arg>
                         <arg>io.vertx.core/io.vertx.core.impl=com.guicedee.vertx</arg>
+                        <arg>--add-exports</arg>
+                        <arg>io.vertx.core/io.vertx.core.internal=com.guicedee.vertx</arg>
                     </compilerArgs>
                 </configuration>
             </plugin>

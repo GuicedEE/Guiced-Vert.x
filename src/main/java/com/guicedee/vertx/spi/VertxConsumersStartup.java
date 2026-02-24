@@ -87,6 +87,22 @@ public class VertxConsumersStartup implements VerticleStartup<VertxConsumersStar
                             options.setWorkerPoolSize(poolSize);
                         }
                     }
+
+                    // If no explicit worker pool was set by the event options,
+                    // inherit from the enclosing @Verticle annotation for this consumer's package
+                    if (options.getWorkerPoolName() == null || options.getWorkerPoolName().isEmpty()) {
+                        var verticleAnnotation = VerticleBuilder.getVerticleAnnotation(targetClass);
+                        if (verticleAnnotation.isPresent()) {
+                            var va = verticleAnnotation.get();
+                            if (va.workerPoolName() != null && !va.workerPoolName().isEmpty()) {
+                                options.setWorkerPoolName(va.workerPoolName());
+                                if (va.workerPoolSize() > 0) {
+                                    options.setWorkerPoolSize(va.workerPoolSize());
+                                }
+                                log.debug("Event consumer for address {} inheriting worker pool '{}' from @Verticle", address, va.workerPoolName());
+                            }
+                        }
+                    }
                     options.setInstances(instances);
 
                     var consumerVerticle = new EventConsumerVerticle(address, def, targetMethod, targetClass);

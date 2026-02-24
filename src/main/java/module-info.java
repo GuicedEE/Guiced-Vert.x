@@ -35,8 +35,7 @@ module com.guicedee.vertx {
     //provides IGuicePostStartup with VertXPostStartup;
     provides IGuicePreDestroy with VertXPostStartup;
     provides IGuiceModule with VertXModule;
-    //provides io.vertx.core.spi.VertxThreadFactory with InterceptingThreadFactory;
-    //provides io.vertx.core.spi.VertxThreadFactory with CallScopeAwareVertxThreadFactory;
+    provides io.vertx.core.spi.VertxThreadFactory with VerticleNamedThreadFactory;
     provides com.guicedee.client.services.lifecycle.IGuiceConfigurator with VertxClassScanConfig;
 
     uses com.guicedee.vertx.spi.VertxConfigurator;

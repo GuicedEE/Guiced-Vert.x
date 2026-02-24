@@ -4,9 +4,6 @@ import com.google.inject.Key;
 import com.google.inject.TypeLiteral;
 import com.google.inject.name.Names;
 import com.guicedee.client.IGuiceContext;
-import com.guicedee.client.scopes.CallScopeProperties;
-import com.guicedee.client.scopes.CallScopeSource;
-import com.guicedee.client.scopes.CallScoper;
 import com.guicedee.services.jsonrepresentation.IJsonRepresentation;
 import com.guicedee.vertx.VertxEventDefinition;
 import com.guicedee.vertx.VertxEventOptions;
@@ -16,7 +13,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.WorkerExecutor;
 import io.vertx.core.eventbus.Message;
-import io.vertx.core.eventbus.MessageConsumer;
+import io.vertx.core.internal.ContextInternal;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import lombok.Getter;
@@ -26,7 +23,6 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Registry for Vertx event consumers and publishers
@@ -369,9 +365,39 @@ public class VertxEventRegistry {
                     }
 
                     if (local) {
-                        vertx.eventBus().localConsumer(address, message -> dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition));
+                        vertx.eventBus().localConsumer(address, message -> {
+                            ContextInternal current = (ContextInternal) vertx.getOrCreateContext();
+                            ContextInternal duplicated = current.duplicate();
+                            duplicated.runOnContext(v ->
+                                dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition)
+                                    .subscribe().with(
+                                            ignored -> { /* no-op */ },
+                                            ex -> {
+                                                Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
+                                                        ? ex.getCause() : ex;
+                                                log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
+                                                try { message.fail(500, String.valueOf(cause.getMessage())); } catch (Throwable ignored2) { }
+                                            }
+                                    )
+                            );
+                        });
                     } else {
-                        vertx.eventBus().consumer(address, message -> dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition));
+                        vertx.eventBus().consumer(address, message -> {
+                            ContextInternal current = (ContextInternal) vertx.getOrCreateContext();
+                            ContextInternal duplicated = current.duplicate();
+                            duplicated.runOnContext(v ->
+                                dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition)
+                                    .subscribe().with(
+                                            ignored -> { /* no-op */ },
+                                            ex -> {
+                                                Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
+                                                        ? ex.getCause() : ex;
+                                                log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
+                                                try { message.fail(500, String.valueOf(cause.getMessage())); } catch (Throwable ignored2) { }
+                                            }
+                                    )
+                            );
+                        });
                     }
                 }
                 // Mark this address as registered
@@ -400,7 +426,10 @@ public class VertxEventRegistry {
                 boolean local = eventDefinition.options().localOnly();
                 for (int i = 0; i < instances; i++) {
                     if (local) {
-                        vertx.eventBus().localConsumer(address, message ->
+                        vertx.eventBus().localConsumer(address, message -> {
+                            ContextInternal current = (ContextInternal) vertx.getOrCreateContext();
+                            ContextInternal duplicated = current.duplicate();
+                            duplicated.runOnContext(v ->
                                 dispatch(vertx, message, method, methodClass, eventDefinition)
                                         .subscribe().with(
                                                 ignored -> { /* no-op */ },
@@ -414,9 +443,13 @@ public class VertxEventRegistry {
                                                     }
                                                 }
                                         )
-                        );
+                            );
+                        });
                     } else {
-                        vertx.eventBus().consumer(address, message ->
+                        vertx.eventBus().consumer(address, message -> {
+                            ContextInternal current = (ContextInternal) vertx.getOrCreateContext();
+                            ContextInternal duplicated = current.duplicate();
+                            duplicated.runOnContext(v ->
                                 dispatch(vertx, message, method, methodClass, eventDefinition)
                                         .subscribe().with(
                                                 ignored -> { /* no-op */ },
@@ -430,7 +463,8 @@ public class VertxEventRegistry {
                                                     }
                                                 }
                                         )
-                        );
+                            );
+                        });
                     }
                 }
                 // Mark this address as registered
@@ -440,23 +474,49 @@ public class VertxEventRegistry {
     }
 
     /**
-     * Dispatches a received message according to event options (e.g., worker pool)
+     * Dispatches a received message according to event options (e.g., worker pool).
+     * <p>
+     * When the {@code @VertxEventOptions} does not specify a worker pool, the dispatcher
+     * falls back to the enclosing {@code @Verticle}'s worker pool for the consumer class.
      */
     public static Uni<Void> dispatch(Vertx vertx, Message<?> message, Method method, Class<?> methodClass, VertxEventDefinition eventDefinition) {
         try {
             boolean isWorker = eventDefinition != null && eventDefinition.options().worker();
-            log.debug("Dispatching message on address {}, worker={}", message.address(), isWorker);
+
+            // Resolve the effective worker pool: event-level → verticle-level → none
+            String resolvedPool = null;
+            int resolvedPoolSize = 20;
+            if (eventDefinition != null) {
+                resolvedPool = eventDefinition.options().workerPool();
+                if (eventDefinition.options().workerPoolSize() > 0) {
+                    resolvedPoolSize = eventDefinition.options().workerPoolSize();
+                }
+            }
+            if (resolvedPool == null || resolvedPool.isEmpty()) {
+                var verticleAnnotation = VerticleBuilder.getVerticleAnnotation(methodClass);
+                if (verticleAnnotation.isPresent()) {
+                    var va = verticleAnnotation.get();
+                    if (va.workerPoolName() != null && !va.workerPoolName().isEmpty()) {
+                        resolvedPool = va.workerPoolName();
+                        if (va.workerPoolSize() > 0) {
+                            resolvedPoolSize = va.workerPoolSize();
+                        }
+                        // If the @Verticle defines a worker pool, treat as worker dispatch
+                        isWorker = true;
+                    }
+                }
+            }
+
+            log.debug("Dispatching message on address {}, worker={}, pool={}", message.address(), isWorker, resolvedPool);
 
             if (isWorker) {
-                String pool = eventDefinition.options().workerPool();
-                if (pool != null && !pool.isEmpty()) {
-                    int size = eventDefinition.options().workerPoolSize() > 0 ? eventDefinition.options().workerPoolSize() : 20;
-
-                    WorkerExecutor exec = workerExecutors.computeIfAbsent(eventDefinition.value(), name -> vertx.createSharedWorkerExecutor(eventDefinition.value(), size));
-                    // Execute the call-scope setup on the worker, get Uni<Void> back, then flatten
+                if (resolvedPool != null && !resolvedPool.isEmpty()) {
+                    final int size = resolvedPoolSize;
+                    final String poolName = resolvedPool;
+                    WorkerExecutor exec = workerExecutors.computeIfAbsent(poolName, name -> vertx.createSharedWorkerExecutor(name, size));
                     Future<Uni<Void>> fut = exec.executeBlocking(() -> {
-                        log.debug("Executing on named worker pool: {}", pool);
-                        return withCallScope(() -> handleMethodBasedConsumer(message, method, methodClass), CallScopeSource.VertXConsumer);
+                        log.debug("Executing on named worker pool: {}", poolName);
+                        return  handleMethodBasedConsumer(message, method, methodClass);
                     }, false);
                     return Uni.createFrom().completionStage(
                                     fut.toCompletionStage()
@@ -467,7 +527,7 @@ public class VertxEventRegistry {
                     var currentContext = Vertx.currentContext();
                     Future<Uni<Void>> fut = currentContext.executeBlocking(() -> {
                         log.debug("Executing on default worker pool");
-                        return withCallScope(() -> handleMethodBasedConsumer(message, method, methodClass), CallScopeSource.VertXConsumer);
+                        return handleMethodBasedConsumer(message, method, methodClass);
                     }, false);
                     return Uni.createFrom().completionStage(
                                     fut.toCompletionStage()
@@ -477,9 +537,7 @@ public class VertxEventRegistry {
                 }
             } else {
                 // Defer so the CallScope is established at subscription time
-                return Uni.createFrom().deferred(() ->
-                        (Uni<Void>) withCallScope(() -> handleMethodBasedConsumer(message, method, methodClass), CallScopeSource.VertXConsumer)
-                );
+                return handleMethodBasedConsumer(message, method, methodClass);
             }
         } catch (Throwable t) {
             log.error("Error dispatching message on address {}: {}", message.address(), t.getMessage(), t);
@@ -488,29 +546,6 @@ public class VertxEventRegistry {
             } catch (Throwable ignored) {
             }
             return Uni.createFrom().failure(t);
-        }
-    }
-
-    private static <T> T withCallScope(java.util.concurrent.Callable<T> task, CallScopeSource source) {
-        CallScoper callScoper = IGuiceContext.get(CallScoper.class);
-        boolean startedScope = callScoper.isStartedScope();
-        if (!startedScope) {
-            callScoper.enter();
-        }
-        try {
-            CallScopeProperties props = IGuiceContext.get(CallScopeProperties.class);
-            if (props.getSource() == null || props.getSource() == CallScopeSource.Unknown) {
-                props.setSource(source);
-            }
-            return task.call();
-        } catch (RuntimeException re) {
-            throw re;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-            if (!startedScope) {
-                callScoper.exit();
-            }
         }
     }
 
@@ -527,8 +562,8 @@ public class VertxEventRegistry {
                     Object[] params = prepareMethodParameters(method, message);
 
                     // Ensure source is correctly set for the current call scope
-                    CallScopeProperties csp = IGuiceContext.get(CallScopeProperties.class);
-                    csp.setSource(CallScopeSource.VertXConsumer);
+                   // CallScopeProperties csp = IGuiceContext.get(CallScopeProperties.class);
+                   // csp.setSource(CallScopeSource.VertXConsumer);
 
                     // Invoke on the current thread (event-loop or worker depending on dispatch)
                     Object invocationResult;
