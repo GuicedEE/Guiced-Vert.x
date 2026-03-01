@@ -74,12 +74,6 @@
             <artifactId>vertx-mutiny</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>com.guicedee</groupId>
-            <artifactId>inject</artifactId>
-            <scope>test</scope>
-        </dependency>
-
     </dependencies>
 
 
@@ -119,7 +113,6 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <useModulePath>true</useModulePath>
-                    <skip>true</skip>
                 </configuration>
             </plugin>
             <plugin>

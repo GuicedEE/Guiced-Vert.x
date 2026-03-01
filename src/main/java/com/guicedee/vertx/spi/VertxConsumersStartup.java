@@ -3,10 +3,14 @@ package com.guicedee.vertx.spi;
 import com.guicedee.vertx.VertxEventDefinition;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.Message;
 import lombok.extern.log4j.Log4j2;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Verticle startup hook that registers event consumers scoped to the
@@ -33,6 +37,9 @@ public class VertxConsumersStartup implements VerticleStartup<VertxConsumersStar
             var classMap = VertxEventRegistry.getEventConsumerClass();
             var methodMap = VertxEventRegistry.getEventConsumerMethods();
             var methodClassMap = VertxEventRegistry.getEventConsumerMethodClasses();
+
+            // Collect deployment futures so startup waits for all consumers to be registered
+            List<Future<?>> deploymentFutures = new ArrayList<>();
 
             // Deploy a dedicated verticle per address (per @VertxEventDefinition)
             definitions.forEach((address, def) -> {
@@ -106,16 +113,25 @@ public class VertxConsumersStartup implements VerticleStartup<VertxConsumersStar
                     options.setInstances(instances);
 
                     var consumerVerticle = new EventConsumerVerticle(address, def, targetMethod, targetClass);
-                    vertx.deployVerticle(consumerVerticle, options).onFailure(t ->
-                                    log.error("Failed to deploy consumer verticle for {}: {}", address, t.getMessage(), t)
-                            )
+                    var deployFuture = vertx.deployVerticle(consumerVerticle, options)
+                            .onFailure(t -> log.error("Failed to deploy consumer verticle for {}: {}", address, t.getMessage(), t))
                             .onSuccess(id -> log.debug("Deployed consumer verticle [{}] for address {} (instances={})", id, address, instances));
+                    deploymentFutures.add(deployFuture);
                 } catch (Throwable t) {
                     log.error("Error while deploying consumer verticle for {}", address, t);
                 }
             });
 
-            log.debug("VertxConsumersStartup completed per-address deployments for assignedPackage='{}'", assignedPackage);
+            // Wait for all consumer verticle deployments to complete before signalling startup
+            if (!deploymentFutures.isEmpty()) {
+                Future.all(deploymentFutures)
+                        .onSuccess(v -> log.debug("VertxConsumersStartup: all {} consumer verticles deployed for assignedPackage='{}'",
+                                    deploymentFutures.size(), assignedPackage))
+                        .onFailure(t -> log.error("VertxConsumersStartup: some consumer verticles failed to deploy for assignedPackage='{}'",
+                                    assignedPackage, t));
+            } else {
+                log.debug("VertxConsumersStartup: no consumers to deploy for assignedPackage='{}'", assignedPackage);
+            }
         } catch (Throwable t) {
             log.error("Failed to deploy per-address consumer verticles for assignedPackage='{}'", assignedPackage, t);
             // Do not fail the verticle start promise here to avoid cascading failures.

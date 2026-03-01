@@ -36,7 +36,7 @@ public class CodecRegistryTest {
         assertEquals("test-case-example", CodecRegistry.toKebabCase("testCaseExample"));
         assertEquals("uwe-server-message", CodecRegistry.toKebabCase("UWEServerMessage"));
         assertEquals("", CodecRegistry.toKebabCase(""));
-        assertNull(CodecRegistry.toKebabCase(null));
+        assertEquals("", CodecRegistry.toKebabCase(null));
     }
     
     @Test

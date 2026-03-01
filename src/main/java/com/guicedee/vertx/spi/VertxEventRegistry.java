@@ -83,12 +83,38 @@ public class VertxEventRegistry {
 
             @Override
             public VertxEventOptions options() {
-                return wrapEventOptions(definition.options());
+                return wrapEventOptions(originalAddress, definition.options());
             }
         };
     }
 
-    private static VertxEventOptions wrapEventOptions(VertxEventOptions options) {
+    /**
+     * Resolves an option value with per-address override support.
+     * <p>
+     * Lookup order:
+     * <ol>
+     *   <li>{@code VERTX_EVENT_<OPTION>_<NORMALIZED_ADDRESS>} — per-address override</li>
+     *   <li>{@code VERTX_EVENT_<OPTION>} — global override for all events</li>
+     *   <li>The annotation default value</li>
+     * </ol>
+     */
+    private static String resolveOption(String address, String optionKey, String defaultValue) {
+        // 1. Per-address: VERTX_EVENT_WORKER_MY_EVENT_ADDRESS
+        String normalizedAddress = address.toUpperCase().replace('.', '_').replace('-', '_');
+        String perAddressKey = optionKey + "_" + normalizedAddress;
+        // Check system property and env var directly to avoid Environment's empty-string fallback
+        String perAddress = System.getProperty(perAddressKey);
+        if (perAddress == null) {
+            perAddress = System.getenv(perAddressKey);
+        }
+        if (perAddress != null) {
+            return perAddress;
+        }
+        // 2. Global: VERTX_EVENT_WORKER
+        return com.guicedee.client.Environment.getSystemPropertyOrEnvironment(optionKey, defaultValue);
+    }
+
+    private static VertxEventOptions wrapEventOptions(String address, VertxEventOptions options) {
         if (options == null) return null;
         return new VertxEventOptions() {
             @Override
@@ -98,67 +124,67 @@ public class VertxEventRegistry {
 
             @Override
             public boolean localOnly() {
-                return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_LOCAL_ONLY", String.valueOf(options.localOnly())));
+                return Boolean.parseBoolean(resolveOption(address, "VERTX_EVENT_LOCAL_ONLY", String.valueOf(options.localOnly())));
             }
 
             @Override
             public boolean autobind() {
-                return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_AUTOBIND", String.valueOf(options.autobind())));
+                return Boolean.parseBoolean(resolveOption(address, "VERTX_EVENT_AUTOBIND", String.valueOf(options.autobind())));
             }
 
             @Override
             public int consumerCount() {
-                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_CONSUMER_COUNT", String.valueOf(options.consumerCount())));
+                return Integer.parseInt(resolveOption(address, "VERTX_EVENT_CONSUMER_COUNT", String.valueOf(options.consumerCount())));
             }
 
             @Override
             public boolean worker() {
-                return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_WORKER", String.valueOf(options.worker())));
+                return Boolean.parseBoolean(resolveOption(address, "VERTX_EVENT_WORKER", String.valueOf(options.worker())));
             }
 
             @Override
             public String workerPool() {
-                return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_WORKER_POOL", options.workerPool());
+                return resolveOption(address, "VERTX_EVENT_WORKER_POOL", options.workerPool());
             }
 
             @Override
             public int workerPoolSize() {
-                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_WORKER_POOL_SIZE", String.valueOf(options.workerPoolSize())));
+                return Integer.parseInt(resolveOption(address, "VERTX_EVENT_WORKER_POOL_SIZE", String.valueOf(options.workerPoolSize())));
             }
 
             @Override
             public int instances() {
-                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_INSTANCES", String.valueOf(options.instances())));
+                return Integer.parseInt(resolveOption(address, "VERTX_EVENT_INSTANCES", String.valueOf(options.instances())));
             }
 
             @Override
             public String orderedByHeader() {
-                return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_ORDERED_BY_HEADER", options.orderedByHeader());
+                return resolveOption(address, "VERTX_EVENT_ORDERED_BY_HEADER", options.orderedByHeader());
             }
 
             @Override
             public int maxBufferedMessages() {
-                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_MAX_BUFFERED_MESSAGES", String.valueOf(options.maxBufferedMessages())));
+                return Integer.parseInt(resolveOption(address, "VERTX_EVENT_MAX_BUFFERED_MESSAGES", String.valueOf(options.maxBufferedMessages())));
             }
 
             @Override
             public int resumeAtMessages() {
-                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_RESUME_AT_MESSAGES", String.valueOf(options.resumeAtMessages())));
+                return Integer.parseInt(resolveOption(address, "VERTX_EVENT_RESUME_AT_MESSAGES", String.valueOf(options.resumeAtMessages())));
             }
 
             @Override
             public int batchWindowMs() {
-                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_BATCH_WINDOW_MS", String.valueOf(options.batchWindowMs())));
+                return Integer.parseInt(resolveOption(address, "VERTX_EVENT_BATCH_WINDOW_MS", String.valueOf(options.batchWindowMs())));
             }
 
             @Override
             public int batchMax() {
-                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_BATCH_MAX", String.valueOf(options.batchMax())));
+                return Integer.parseInt(resolveOption(address, "VERTX_EVENT_BATCH_MAX", String.valueOf(options.batchMax())));
             }
 
             @Override
             public long timeoutMs() {
-                return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_TIMEOUT_MS", String.valueOf(options.timeoutMs())));
+                return Long.parseLong(resolveOption(address, "VERTX_EVENT_TIMEOUT_MS", String.valueOf(options.timeoutMs())));
             }
         };
     }
@@ -359,42 +385,32 @@ public class VertxEventRegistry {
 
                     if (local) {
                         vertx.eventBus().localConsumer(address, message -> {
-                            vertx.executeBlocking(() -> {
-                                vertx.runOnContext(v ->
-                                        dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition)
-                                                .subscribe().with(
-                                                        ignored -> { /* no-op */ },
-                                                        ex -> {
-                                                            Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
-                                                                    ? ex.getCause() : ex;
-                                                            log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
-                                                            try { message.fail(500, String.valueOf(cause.getMessage())); } catch (Throwable ignored2) { }
-                                                        }
-                                                )
-                                );
-                                return true;
-                            });
+                            dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition)
+                                    .subscribe().with(
+                                            ignored -> { /* no-op */ },
+                                            ex -> {
+                                                Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
+                                                        ? ex.getCause() : ex;
+                                                log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
+                                                try { message.fail(500, String.valueOf(cause.getMessage())); } catch (Throwable ignored2) { }
+                                            }
+                                    );
                         });
                     } else {
                         vertx.eventBus().consumer(address, message -> {
-                            vertx.executeBlocking(() -> {
-                                vertx.runOnContext(v ->
-                                        dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition)
-                                                .subscribe().with(
-                                                        ignored -> { /* no-op */ },
-                                                        ex -> {
-                                                            Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
-                                                                    ? ex.getCause() : ex;
-                                                            log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
-                                                            try {
-                                                                message.fail(500, String.valueOf(cause.getMessage()));
-                                                            } catch (Throwable ignored2) {
-                                                            }
-                                                        }
-                                                )
-                                );
-                                return true;
-                            });
+                            dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition)
+                                    .subscribe().with(
+                                            ignored -> { /* no-op */ },
+                                            ex -> {
+                                                Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
+                                                        ? ex.getCause() : ex;
+                                                log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
+                                                try {
+                                                    message.fail(500, String.valueOf(cause.getMessage()));
+                                                } catch (Throwable ignored2) {
+                                                }
+                                            }
+                                    );
                         });
                     }
                 }
@@ -425,45 +441,35 @@ public class VertxEventRegistry {
                 for (int i = 0; i < instances; i++) {
                     if (local) {
                         vertx.eventBus().localConsumer(address, message -> {
-                            vertx.executeBlocking(() -> {
-                                vertx.runOnContext(v ->
-                                        dispatch(vertx, message, method, methodClass, eventDefinition)
-                                                .subscribe().with(
-                                                        ignored -> { /* no-op */ },
-                                                        ex -> {
-                                                            Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
-                                                                    ? ex.getCause() : ex;
-                                                            log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
-                                                            try {
-                                                                message.fail(500, String.valueOf(cause.getMessage()));
-                                                            } catch (Throwable ignored2) {
-                                                            }
-                                                        }
-                                                )
-                                );
-                                return true;
-                            },instances == 1);
+                            dispatch(vertx, message, method, methodClass, eventDefinition)
+                                    .subscribe().with(
+                                            ignored -> { /* no-op */ },
+                                            ex -> {
+                                                Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
+                                                        ? ex.getCause() : ex;
+                                                log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
+                                                try {
+                                                    message.fail(500, String.valueOf(cause.getMessage()));
+                                                } catch (Throwable ignored2) {
+                                                }
+                                            }
+                                    );
                         });
                     } else {
                         vertx.eventBus().consumer(address, message -> {
-                            vertx.executeBlocking(() -> {
-                                vertx.runOnContext(v ->
-                                        dispatch(vertx, message, method, methodClass, eventDefinition)
-                                                .subscribe().with(
-                                                        ignored -> { /* no-op */ },
-                                                        ex -> {
-                                                            Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
-                                                                    ? ex.getCause() : ex;
-                                                            log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
-                                                            try {
-                                                                message.fail(500, String.valueOf(cause.getMessage()));
-                                                            } catch (Throwable ignored2) {
-                                                            }
-                                                        }
-                                                )
-                                );
-                                return true;
-                            },instances == 1);
+                            dispatch(vertx, message, method, methodClass, eventDefinition)
+                                    .subscribe().with(
+                                            ignored -> { /* no-op */ },
+                                            ex -> {
+                                                Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
+                                                        ? ex.getCause() : ex;
+                                                log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
+                                                try {
+                                                    message.fail(500, String.valueOf(cause.getMessage()));
+                                                } catch (Throwable ignored2) {
+                                                }
+                                            }
+                                    );
                         });
                     }
                 }
@@ -514,25 +520,21 @@ public class VertxEventRegistry {
                     final int size = resolvedPoolSize;
                     final String poolName = resolvedPool;
                     WorkerExecutor exec = workerExecutors.computeIfAbsent(poolName, name -> vertx.createSharedWorkerExecutor(name, size));
-                    Future<Uni<Void>> fut = exec.executeBlocking(() -> {
+                    Future<Void> fut = exec.<Void>executeBlocking(() -> {
                         log.debug("Executing on named worker pool: {}", poolName);
-                        return  handleMethodBasedConsumer(message, method, methodClass);
+                        invokeConsumerMethod(message, method, methodClass);
+                        return null;
                     }, false);
-                    return Uni.createFrom().completionStage(
-                                    fut.toCompletionStage()
-                                            .thenCompose(u -> u.subscribe().asCompletionStage())
-                            )
+                    return Uni.createFrom().completionStage(fut.toCompletionStage())
                             .onFailure().invoke(ex -> log.error("Worker dispatch setup failed for {}: {}", message.address(), ex.getMessage(), ex));
                 } else {
                     var currentContext = Vertx.currentContext();
-                    Future<Uni<Void>> fut = currentContext.executeBlocking(() -> {
+                    Future<Void> fut = currentContext.<Void>executeBlocking(() -> {
                         log.debug("Executing on default worker pool");
-                        return handleMethodBasedConsumer(message, method, methodClass);
+                        invokeConsumerMethod(message, method, methodClass);
+                        return null;
                     }, false);
-                    return Uni.createFrom().completionStage(
-                                    fut.toCompletionStage()
-                                            .thenCompose(u -> u.subscribe().asCompletionStage())
-                            )
+                    return Uni.createFrom().completionStage(fut.toCompletionStage())
                             .onFailure().invoke(ex -> log.error("Worker dispatch setup failed for {}: {}", message.address(), ex.getMessage(), ex));
                 }
             } else {
@@ -546,6 +548,44 @@ public class VertxEventRegistry {
             } catch (Throwable ignored) {
             }
             return Uni.createFrom().failure(t);
+        }
+    }
+
+    /**
+     * Eagerly invokes a consumer method on the current thread and handles the reply.
+     * <p>
+     * Used by worker dispatch to ensure the method executes on the worker thread
+     * rather than being deferred back to the event-loop via Uni subscription.
+     */
+    private static void invokeConsumerMethod(Message<?> message, Method method, Class<?> methodClass) {
+        try {
+            Object instance = IGuiceContext.get(methodClass);
+            Object[] params = prepareMethodParameters(method, message);
+            Object invocationResult = method.invoke(instance, params);
+
+            if (invocationResult instanceof Uni<?> uniResult) {
+                uniResult.subscribe().asCompletionStage().toCompletableFuture().join();
+            } else if (invocationResult instanceof Future<?> futResult) {
+                Object res = futResult.toCompletionStage().toCompletableFuture().join();
+                try { message.reply(res); } catch (Throwable t) {
+                    log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
+                }
+            } else if (invocationResult instanceof java.util.concurrent.CompletableFuture<?> cfResult) {
+                Object res = cfResult.join();
+                try { message.reply(res); } catch (Throwable t) {
+                    log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
+                }
+            } else if (invocationResult != null) {
+                try { message.reply(invocationResult); } catch (Throwable t) {
+                    log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
+                }
+            }
+            // null result = void method, no reply needed
+        } catch (Throwable t) {
+            Throwable cause = (t instanceof java.lang.reflect.InvocationTargetException && t.getCause() != null)
+                    ? t.getCause() : t;
+            log.error("Error invoking worker consumer {}.{}(): {}", methodClass.getSimpleName(), method.getName(), cause.getMessage(), cause);
+            try { message.fail(500, String.valueOf(cause.getMessage())); } catch (Throwable ignored) { }
         }
     }
 
