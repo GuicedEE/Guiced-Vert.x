@@ -712,8 +712,30 @@ public class VertxEventRegistry {
             Class<?> paramType = param.getType();
 
             if (Message.class.isAssignableFrom(paramType)) {
-                // Pass the Message object
-                params[i] = message;
+                // Check if the Message body is a JsonObject that needs conversion
+                // to the generic type argument (e.g. Message<TestData>)
+                Message<?> resolvedMessage = message;
+                Object body = message.body();
+                if (body instanceof JsonObject) {
+                    Type genericType = param.getParameterizedType();
+                    if (genericType instanceof ParameterizedType pt) {
+                        Type[] typeArgs = pt.getActualTypeArguments();
+                        if (typeArgs.length == 1 && typeArgs[0] instanceof Class<?> bodyType
+                                && !isDefaultVertxType(bodyType)) {
+                            try {
+                                JsonObject jsonObject = (JsonObject) body;
+                                Object converted = IJsonRepresentation.getObjectMapper()
+                                        .readValue(jsonObject.encode(), bodyType);
+                                log.debug("Converted Message body JsonObject to {}", bodyType.getName());
+                                // Wrap the original message with the converted body
+                                resolvedMessage = new MessageWrapper<>(message, converted);
+                            } catch (Exception e) {
+                                log.error("Error converting Message body JsonObject to " + bodyType.getName(), e);
+                            }
+                        }
+                    }
+                }
+                params[i] = resolvedMessage;
             } else {
                 Object body = message.body();
 
@@ -878,6 +900,73 @@ public class VertxEventRegistry {
             log.warn("Failed to create Guice key for type {} at address {}: {}",
                     type.getTypeName(), address, e.getMessage());
             return Key.get(Object.class, Names.named(address));
+        }
+    }
+
+    /**
+     * A delegating {@link Message} wrapper that overrides {@link #body()} to return
+     * a pre-converted value instead of the original {@link JsonObject}.
+     * All other methods delegate to the original message.
+     *
+     * @param <T> the converted body type
+     */
+    private static class MessageWrapper<T> implements Message<T> {
+        private final Message<?> delegate;
+        private final T convertedBody;
+
+        MessageWrapper(Message<?> delegate, T convertedBody) {
+            this.delegate = delegate;
+            this.convertedBody = convertedBody;
+        }
+
+        @Override
+        public T body() {
+            return convertedBody;
+        }
+
+        @Override
+        public String address() {
+            return delegate.address();
+        }
+
+        @Override
+        public io.vertx.core.MultiMap headers() {
+            return delegate.headers();
+        }
+
+        @Override
+        public String replyAddress() {
+            return delegate.replyAddress();
+        }
+
+        @Override
+        public boolean isSend() {
+            return delegate.isSend();
+        }
+
+        @Override
+        public void reply(Object msg) {
+            delegate.reply(msg);
+        }
+
+        @Override
+        public void reply(Object msg, io.vertx.core.eventbus.DeliveryOptions options) {
+            delegate.reply(msg, options);
+        }
+
+        @Override
+        public <R> Future<Message<R>> replyAndRequest(Object msg) {
+            return delegate.replyAndRequest(msg);
+        }
+
+        @Override
+        public <R> Future<Message<R>> replyAndRequest(Object msg, io.vertx.core.eventbus.DeliveryOptions options) {
+            return delegate.replyAndRequest(msg, options);
+        }
+
+        @Override
+        public void fail(int failureCode, String msg) {
+            delegate.fail(failureCode, msg);
         }
     }
 }

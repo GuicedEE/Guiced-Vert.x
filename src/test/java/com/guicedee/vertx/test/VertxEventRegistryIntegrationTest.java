@@ -41,12 +41,6 @@ public class VertxEventRegistryIntegrationTest {
         assertNotNull(vertx, "Vertx must be initialized for tests");
     }
 
-    @AfterAll
-    public void afterAll() {
-        if (VertXPreStartup.getVertx() != null) {
-            VertXPreStartup.getVertx().close();
-        }
-    }
 
     @Test
     public void testSendRequestReply_UsesWorkerDispatch() throws Exception {

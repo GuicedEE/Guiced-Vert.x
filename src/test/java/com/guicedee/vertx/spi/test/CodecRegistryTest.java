@@ -5,30 +5,30 @@ import com.guicedee.vertx.spi.CodecRegistry;
 import com.guicedee.vertx.spi.VertXPreStartup;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.eventbus.MessageCodec;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for the CodecRegistry
  */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class CodecRegistryTest {
     
     private Vertx vertx;
     
-    @BeforeEach
+    @BeforeAll
     public void setUp() {
-        // Boot Vert.x and auto-register consumers per VertXPreStartup
+        // Boot Vert.x once and reuse across all tests
         IGuiceContext.instance().getConfig().setFieldScanning(true).setClasspathScanning(true).setAnnotationScanning(true).setIgnoreClassVisibility(true);
         IGuiceContext.instance().inject();
         vertx = VertXPreStartup.getVertx();
+        assertNotNull(vertx, "Vertx must be initialized for tests");
     }
-    
+
     @Test
     public void testToKebabCase() {
         assertEquals("test", CodecRegistry.toKebabCase("test"));
@@ -59,29 +59,28 @@ public class CodecRegistryTest {
     }
     
     @Test
-    public void testCreateAndRegisterCodec() {
+    public void testCreateAndRegisterCodec() throws Exception {
         String codecName = CodecRegistry.createAndRegisterCodec(vertx, TestMessage.class);
         assertEquals("test-message", codecName);
         
         // Test sending a message with the codec
         TestMessage testMessage = new TestMessage("Hello World");
         
-        // Create a consumer that will receive the message
-        vertx.eventBus().consumer("test.address", message -> {
+        // Create a consumer and await its registration before sending
+        var consumer = vertx.eventBus().consumer("test.address", message -> {
             assertTrue(message.body() instanceof TestMessage);
             TestMessage received = (TestMessage) message.body();
             assertEquals("Hello World", received.getContent());
             message.reply("Received");
         });
-        
-        // Send a message with the codec
-        vertx.eventBus().request("test.address", testMessage, 
+        consumer.completion().toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+
+        // Send a message with the codec and await the reply
+        Object reply = vertx.eventBus().request("test.address", testMessage,
                 new io.vertx.core.eventbus.DeliveryOptions().setCodecName(codecName))
-                .onComplete(ar -> {
-                    assertTrue(ar.succeeded());
-                    assertEquals("Received", ar.result().body());
-                });
-        
+                .toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+        assertNotNull(reply);
+
         // Test registering the same codec again
         String codecName2 = CodecRegistry.createAndRegisterCodec(vertx, TestMessage.class);
         assertEquals(codecName, codecName2);
@@ -91,7 +90,7 @@ public class CodecRegistryTest {
     }
     
     @Test
-    public void testCreateAndRegisterCodecsForAllEventTypes() {
+    public void testCreateAndRegisterCodecsForAllEventTypes() throws Exception {
         // We can't easily test this directly since it depends on the actual VertxEventRegistry state
         // Instead, we'll verify that our codec registration mechanism works
         
@@ -99,17 +98,25 @@ public class CodecRegistryTest {
         String codecName = CodecRegistry.createAndRegisterCodec(vertx, TestMessage.class);
         assertEquals("test-message", codecName);
         
-        // Create a consumer that will receive the message
-        vertx.eventBus().consumer("test.address2", message -> {
+        // Create a future to await delivery
+        var received = new java.util.concurrent.CompletableFuture<TestMessage>();
+
+        // Create a consumer and await its registration before publishing
+        var consumer = vertx.eventBus().consumer("test.address2", message -> {
             assertTrue(message.body() instanceof TestMessage);
-            TestMessage received = (TestMessage) message.body();
-            assertEquals("Test Message", received.getContent());
+            TestMessage msg = (TestMessage) message.body();
+            received.complete(msg);
         });
-        
+        consumer.completion().toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+
         // Send a message with the codec
         TestMessage testMessage = new TestMessage("Test Message");
         vertx.eventBus().publish("test.address2", testMessage, 
                 new io.vertx.core.eventbus.DeliveryOptions().setCodecName(codecName));
+
+        // Await delivery before the test exits
+        TestMessage result = received.get(10, TimeUnit.SECONDS);
+        assertEquals("Test Message", result.getContent());
     }
     
     /**
