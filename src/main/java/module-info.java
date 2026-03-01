@@ -20,7 +20,7 @@ module com.guicedee.vertx {
     requires transitive io.smallrye.mutiny;
     requires transitive io.vertx.mutiny;
 
-    requires jakarta.cdi;
+    requires transitive jakarta.cdi;
 
 
     requires static lombok;
@@ -35,7 +35,6 @@ module com.guicedee.vertx {
     //provides IGuicePostStartup with VertXPostStartup;
     provides IGuicePreDestroy with VertXPostStartup;
     provides IGuiceModule with VertXModule;
-    provides io.vertx.core.spi.VertxThreadFactory with VerticleNamedThreadFactory;
     provides com.guicedee.client.services.lifecycle.IGuiceConfigurator with VertxClassScanConfig;
 
     uses com.guicedee.vertx.spi.VertxConfigurator;

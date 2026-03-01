@@ -15,7 +15,9 @@
     <packaging>jar</packaging>
     <version>2.0.0-SNAPSHOT</version>
     <name>Guiced Vert.x</name>
-    <description>Guice-first integration layer for Vert.x 5: bootstraps Vert.x from GuicedEE, wires verticles and event bus publishers/consumers, and supplies codecs plus Mutiny helpers.</description>
+    <description>Guice-first integration layer for Vert.x 5: bootstraps Vert.x from GuicedEE, wires verticles and event
+        bus publishers/consumers, and supplies codecs plus Mutiny helpers.
+    </description>
 
     <properties>
         <project.scm.nameUrl>/GuicedEE/Guiced-Vert.x</project.scm.nameUrl>
@@ -78,10 +80,11 @@
             <artifactId>vertx-mutiny</artifactId>
         </dependency>
 
-<!--        <dependency>
+        <dependency>
             <groupId>com.guicedee</groupId>
             <artifactId>guice-injection</artifactId>
-        </dependency>-->
+            <scope>test</scope>
+        </dependency>
 
     </dependencies>
 
@@ -96,11 +99,6 @@
             <plugin>
                 <groupId>com.coderplus.maven.plugins</groupId>
                 <artifactId>copy-rename-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
             </plugin>
 
             <plugin>
@@ -120,12 +118,20 @@
                         </annotationProcessor>
                     </annotationProcessors>
                     <failOnError>true</failOnError>
-                    <compilerArgs>
-                        <arg>--add-exports</arg>
-                        <arg>io.vertx.core/io.vertx.core.impl=com.guicedee.vertx</arg>
-                        <arg>--add-exports</arg>
-                        <arg>io.vertx.core/io.vertx.core.internal=com.guicedee.vertx</arg>
-                    </compilerArgs>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <useModulePath>true</useModulePath>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <failOnError>false</failOnError>
                 </configuration>
             </plugin>
         </plugins>

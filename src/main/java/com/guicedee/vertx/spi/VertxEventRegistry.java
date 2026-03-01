@@ -13,7 +13,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.WorkerExecutor;
 import io.vertx.core.eventbus.Message;
-import io.vertx.core.internal.ContextInternal;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import lombok.Getter;
@@ -31,12 +30,6 @@ import java.util.Map;
 public class VertxEventRegistry {
 
     private static final java.util.concurrent.ConcurrentHashMap<String, WorkerExecutor> workerExecutors = new java.util.concurrent.ConcurrentHashMap<>();
-
-    /**
-     * Flag to track if consumers have been registered globally.
-     * This prevents double registration when both direct and verticle-based registration paths are used.
-     */
-    private static volatile boolean consumersRegistered = false;
 
     /**
      * Set of addresses that have already been registered to prevent duplicate consumer registration.
@@ -366,37 +359,42 @@ public class VertxEventRegistry {
 
                     if (local) {
                         vertx.eventBus().localConsumer(address, message -> {
-                            ContextInternal current = (ContextInternal) vertx.getOrCreateContext();
-                            ContextInternal duplicated = current.duplicate();
-                            duplicated.runOnContext(v ->
-                                dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition)
-                                    .subscribe().with(
-                                            ignored -> { /* no-op */ },
-                                            ex -> {
-                                                Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
-                                                        ? ex.getCause() : ex;
-                                                log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
-                                                try { message.fail(500, String.valueOf(cause.getMessage())); } catch (Throwable ignored2) { }
-                                            }
-                                    )
-                            );
+                            vertx.executeBlocking(() -> {
+                                vertx.runOnContext(v ->
+                                        dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition)
+                                                .subscribe().with(
+                                                        ignored -> { /* no-op */ },
+                                                        ex -> {
+                                                            Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
+                                                                    ? ex.getCause() : ex;
+                                                            log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
+                                                            try { message.fail(500, String.valueOf(cause.getMessage())); } catch (Throwable ignored2) { }
+                                                        }
+                                                )
+                                );
+                                return true;
+                            });
                         });
                     } else {
                         vertx.eventBus().consumer(address, message -> {
-                            ContextInternal current = (ContextInternal) vertx.getOrCreateContext();
-                            ContextInternal duplicated = current.duplicate();
-                            duplicated.runOnContext(v ->
-                                dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition)
-                                    .subscribe().with(
-                                            ignored -> { /* no-op */ },
-                                            ex -> {
-                                                Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
-                                                        ? ex.getCause() : ex;
-                                                log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
-                                                try { message.fail(500, String.valueOf(cause.getMessage())); } catch (Throwable ignored2) { }
-                                            }
-                                    )
-                            );
+                            vertx.executeBlocking(() -> {
+                                vertx.runOnContext(v ->
+                                        dispatch(vertx, message, consumeMethod, consumerClass, eventDefinition)
+                                                .subscribe().with(
+                                                        ignored -> { /* no-op */ },
+                                                        ex -> {
+                                                            Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
+                                                                    ? ex.getCause() : ex;
+                                                            log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
+                                                            try {
+                                                                message.fail(500, String.valueOf(cause.getMessage()));
+                                                            } catch (Throwable ignored2) {
+                                                            }
+                                                        }
+                                                )
+                                );
+                                return true;
+                            });
                         });
                     }
                 }
@@ -427,43 +425,45 @@ public class VertxEventRegistry {
                 for (int i = 0; i < instances; i++) {
                     if (local) {
                         vertx.eventBus().localConsumer(address, message -> {
-                            ContextInternal current = (ContextInternal) vertx.getOrCreateContext();
-                            ContextInternal duplicated = current.duplicate();
-                            duplicated.runOnContext(v ->
-                                dispatch(vertx, message, method, methodClass, eventDefinition)
-                                        .subscribe().with(
-                                                ignored -> { /* no-op */ },
-                                                ex -> {
-                                                    Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
-                                                            ? ex.getCause() : ex;
-                                                    log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
-                                                    try {
-                                                        message.fail(500, String.valueOf(cause.getMessage()));
-                                                    } catch (Throwable ignored2) {
-                                                    }
-                                                }
-                                        )
-                            );
+                            vertx.executeBlocking(() -> {
+                                vertx.runOnContext(v ->
+                                        dispatch(vertx, message, method, methodClass, eventDefinition)
+                                                .subscribe().with(
+                                                        ignored -> { /* no-op */ },
+                                                        ex -> {
+                                                            Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
+                                                                    ? ex.getCause() : ex;
+                                                            log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
+                                                            try {
+                                                                message.fail(500, String.valueOf(cause.getMessage()));
+                                                            } catch (Throwable ignored2) {
+                                                            }
+                                                        }
+                                                )
+                                );
+                                return true;
+                            },instances == 1);
                         });
                     } else {
                         vertx.eventBus().consumer(address, message -> {
-                            ContextInternal current = (ContextInternal) vertx.getOrCreateContext();
-                            ContextInternal duplicated = current.duplicate();
-                            duplicated.runOnContext(v ->
-                                dispatch(vertx, message, method, methodClass, eventDefinition)
-                                        .subscribe().with(
-                                                ignored -> { /* no-op */ },
-                                                ex -> {
-                                                    Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
-                                                            ? ex.getCause() : ex;
-                                                    log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
-                                                    try {
-                                                        message.fail(500, String.valueOf(cause.getMessage()));
-                                                    } catch (Throwable ignored2) {
-                                                    }
-                                                }
-                                        )
-                            );
+                            vertx.executeBlocking(() -> {
+                                vertx.runOnContext(v ->
+                                        dispatch(vertx, message, method, methodClass, eventDefinition)
+                                                .subscribe().with(
+                                                        ignored -> { /* no-op */ },
+                                                        ex -> {
+                                                            Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
+                                                                    ? ex.getCause() : ex;
+                                                            log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
+                                                            try {
+                                                                message.fail(500, String.valueOf(cause.getMessage()));
+                                                            } catch (Throwable ignored2) {
+                                                            }
+                                                        }
+                                                )
+                                );
+                                return true;
+                            },instances == 1);
                         });
                     }
                 }

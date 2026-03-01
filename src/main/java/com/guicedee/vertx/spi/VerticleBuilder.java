@@ -11,6 +11,7 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -31,6 +32,12 @@ public class VerticleBuilder
     private static final List<String> annotatedPrefixes = new ArrayList<>();
     @Getter
     private static final Map<String, Verticle> verticleAnnotations = new TreeMap<>();
+
+    /**
+     * Tracks VerticleStartup classes that have already been dispatched to prevent
+     * duplicate registrations when nested @Verticle packages overlap.
+     */
+    private static final Set<String> dispatchedStartups = ConcurrentHashMap.newKeySet();
 
 
     /**
@@ -64,7 +71,6 @@ public class VerticleBuilder
             }
         }
 
-        Map<ClassInfo, Boolean> classLoaded = new HashMap<>();
         if (foundVerticleClasses.isEmpty() && packageLevelVerticles.isEmpty())
         {
             //use and configure everything
@@ -104,100 +110,115 @@ public class VerticleBuilder
             // Collect all annotated verticle package prefixes (including capabilities)
             List<String> allAnnotatedPackages = new ArrayList<>();
 
+            // --- Merge class-level and package-level @Verticle entries into a unified map ---
+            // Key = package name, Value = annotation
+            Map<String, Verticle> mergedVerticles = new LinkedHashMap<>();
+
             for (ClassInfo classInfo : foundVerticleClasses)
             {
                 var annotation = classInfo.loadClass().getDeclaredAnnotation(Verticle.class);
-                log.info("Found Verticle: {} - {}", classInfo.getPackageName(), classInfo.getSimpleName());
-                List<String> packageNames = getAppliedPackageNames(classInfo, annotation);
-                allAnnotatedPackages.addAll(packageNames);
-                verticleAnnotations.put(classInfo.getPackageName(), annotation);
-
-                map.put(classInfo.getPackageName(), new AbstractVerticle()
-                {
-                    @Override
-                    public void start(Promise<Void> startPromise) throws Exception
-                    {
-                        // Name the current thread after the worker pool for observability
-                        String poolName = annotation.workerPoolName();
-                        if (poolName != null && !poolName.isEmpty()) {
-                            Thread.currentThread().setName(poolName + "-startup");
-                        }
-
-                        if(!classLoaded.containsKey(classInfo))
-                        {
-                            classLoaded.put(classInfo, true);
-                        }else {
-                            return;
-                        }
-                        @SuppressWarnings("rawtypes")
-                        ServiceLoader<VerticleStartup> startups = ServiceLoader.load(VerticleStartup.class);
-                        startups.stream().map(ServiceLoader.Provider::get)
-                                .filter(a ->
-                                        // Allow startups in the assigned package/capabilities
-                                        packageNames.stream().anyMatch(pkg -> a.getClass().getPackage().getName().startsWith(pkg))
-                                                // Always allow core vertx SPI startups
-                                                || a.getClass().getPackage().getName().startsWith("com.guicedee.vertx.spi")
-                                )
-                                .forEachOrdered(entry -> {
-                                    //noinspection unchecked
-                                    entry.start(startPromise, vertx, this, classInfo.getPackageName());
-                                });
-                        // Ensure deployment completes even if startups don't complete the promise
-                        if (!startPromise.future().isComplete())
-                        {
-                            startPromise.tryComplete();
-                        }
-                        //super.start(startPromise);
-                    }
-                });
+                log.info("Found Verticle (class-level): {} - {}", classInfo.getPackageName(), classInfo.getSimpleName());
+                mergedVerticles.put(classInfo.getPackageName(), annotation);
             }
 
-            // Process package-level @Verticle annotations (from package-info.java files)
-            Set<String> packageLoadedKeys = new HashSet<>();
             for (var pkgEntry : packageLevelVerticles.entrySet())
             {
                 String pkgName = pkgEntry.getKey();
-                Verticle annotation = pkgEntry.getValue();
-
-                // Skip if a class-level verticle already claimed this package
-                if (map.containsKey(pkgName))
+                if (mergedVerticles.containsKey(pkgName))
                 {
                     log.debug("Skipping package-level Verticle for {} — already claimed by class-level annotation", pkgName);
                     continue;
                 }
+                log.info("Found Verticle (package-level): {}", pkgName);
+                mergedVerticles.put(pkgName, pkgEntry.getValue());
+            }
 
-                List<String> packageNames = getAppliedPackageNames(pkgName, annotation);
+            // --- Sort bottom-up: deepest (most specific) packages first ---
+            // This ensures nested @Verticle packages are processed before their parents,
+            // so the most specific verticle claims its VerticleStartup implementations first.
+            List<Map.Entry<String, Verticle>> sortedEntries = new ArrayList<>(mergedVerticles.entrySet());
+            sortedEntries.sort((a, b) -> {
+                // Count dots as a proxy for package depth; more dots = deeper
+                long depthA = a.getKey().chars().filter(c -> c == '.').count();
+                long depthB = b.getKey().chars().filter(c -> c == '.').count();
+                return Long.compare(depthB, depthA); // descending (deepest first)
+            });
+
+            // Collect all annotated package keys for building the nested-exclusion filter
+            List<String> allVerticleKeys = sortedEntries.stream().map(Map.Entry::getKey).toList();
+
+            // Track which verticle entries have already started (guard against double-deploy)
+            Set<String> startedVerticleKeys = ConcurrentHashMap.newKeySet();
+
+            for (var entry : sortedEntries)
+            {
+                String verticlePkgName = entry.getKey();
+                Verticle annotation = entry.getValue();
+
+                List<String> packageNames = getAppliedPackageNames(verticlePkgName, annotation);
                 allAnnotatedPackages.addAll(packageNames);
-                verticleAnnotations.put(pkgName, annotation);
+                verticleAnnotations.put(verticlePkgName, annotation);
 
-                map.put(pkgName, new AbstractVerticle()
+                // Build the set of more-specific (nested) verticle prefixes that should be excluded
+                // from this verticle's startup filter. A prefix P is "nested" if it starts with
+                // this verticle's package AND is longer (more specific).
+                final List<String> nestedVerticlePrefixes = allVerticleKeys.stream()
+                        .filter(k -> !k.equals(verticlePkgName)
+                                && !k.isEmpty()
+                                && k.startsWith(verticlePkgName))
+                        .toList();
+
+                map.put(verticlePkgName, new AbstractVerticle()
                 {
                     @Override
                     public void start(Promise<Void> startPromise) throws Exception
                     {
                         // Name the current thread after the worker pool for observability
                         String poolName = annotation.workerPoolName();
-                        if (poolName != null && !poolName.isEmpty()) {
+                        if (poolName != null && !poolName.isEmpty())
+                        {
                             Thread.currentThread().setName(poolName + "-startup");
                         }
 
-                        if (packageLoadedKeys.contains(pkgName))
+                        // Guard against double-start
+                        if (!startedVerticleKeys.add(verticlePkgName))
                         {
                             return;
                         }
-                        packageLoadedKeys.add(pkgName);
 
                         @SuppressWarnings("rawtypes")
                         ServiceLoader<VerticleStartup> startups = ServiceLoader.load(VerticleStartup.class);
                         startups.stream().map(ServiceLoader.Provider::get)
-                                .filter(a ->
-                                        packageNames.stream().anyMatch(pkg -> a.getClass().getPackage().getName().startsWith(pkg))
-                                                || a.getClass().getPackage().getName().startsWith("com.guicedee.vertx.spi")
-                                )
-                                .forEachOrdered(entry -> {
+                                .filter(a -> {
+                                    String startupPkg = a.getClass().getPackage().getName();
+
+                                    // Always allow core vertx SPI startups
+                                    if (startupPkg.startsWith("com.guicedee.vertx.spi"))
+                                    {
+                                        return true;
+                                    }
+
+                                    // Must match this verticle's package or its capabilities
+                                    boolean matchesThisVerticle = packageNames.stream()
+                                            .anyMatch(pkg -> startupPkg.startsWith(pkg));
+                                    if (!matchesThisVerticle)
+                                    {
+                                        return false;
+                                    }
+
+                                    // Exclude if a more-specific nested @Verticle claims this startup's package
+                                    boolean claimedByNested = nestedVerticlePrefixes.stream()
+                                            .anyMatch(startupPkg::startsWith);
+                                    return !claimedByNested;
+                                })
+                                // Exclude any startup that was already dispatched by another verticle
+                                .filter(a -> dispatchedStartups.add(a.getClass().getName()))
+                                .forEachOrdered(startupEntry -> {
                                     //noinspection unchecked
-                                    entry.start(startPromise, vertx, this, pkgName);
+                                    startupEntry.start(startPromise, vertx, this, verticlePkgName);
                                 });
+
+                        // Ensure deployment completes even if startups don't complete the promise
                         if (!startPromise.future().isComplete())
                         {
                             startPromise.tryComplete();
@@ -219,6 +240,8 @@ public class VerticleBuilder
                     startups.stream().map(ServiceLoader.Provider::get)
                             // Only include startups whose package does NOT start with any annotated prefix
                             .filter(a -> prefixes.stream().noneMatch(pkg -> !pkg.isEmpty() && a.getClass().getPackage().getName().startsWith(pkg)))
+                            // Exclude any startup already dispatched by a specific verticle
+                            .filter(a -> dispatchedStartups.add(a.getClass().getName()))
                             .forEachOrdered(entry -> {
                                 //noinspection unchecked
                                 entry.start(startPromise, vertx, this, "");
@@ -231,32 +254,31 @@ public class VerticleBuilder
                 }
             });
 
-            // Deploy all prepared verticles once after map is complete
-            map.forEach((key, value) -> {
-                // Determine deployment options: for specific verticles, use their annotation; default uses defaults
+            // Deploy all prepared verticles once after map is complete.
+            // Deploy in the same bottom-up order: deepest verticles first, default ("") last.
+            List<String> deployOrder = new ArrayList<>(sortedEntries.stream().map(Map.Entry::getKey).toList());
+            deployOrder.add(""); // default verticle last
+            for (String key : deployOrder)
+            {
+                io.vertx.core.Verticle value = map.get(key);
+                if (value == null) continue;
+
                 DeploymentOptions opts;
-                if (key.isEmpty()) {
+                if (key.isEmpty())
+                {
                     opts = new DeploymentOptions();
                     log.info("Deploying Default Verticle for non-annotated packages");
-                } else {
-                    // Find class annotation again by key, then fall back to package-level annotation
-                    ClassInfo ci = foundVerticleClasses.stream()
-                            .filter(c -> c.getPackageName().equals(key))
-                            .findFirst()
-                            .orElse(null);
-                    Verticle ann = ci != null ? ci.loadClass().getDeclaredAnnotation(Verticle.class) : null;
-                    if (ann == null)
-                    {
-                        // Check package-level annotations
-                        ann = packageLevelVerticles.get(key);
-                    }
+                }
+                else
+                {
+                    Verticle ann = verticleAnnotations.get(key);
                     opts = ann != null ? toDeploymentOptions(ann) : new DeploymentOptions();
                     log.info("Deploying Verticle: {} - workerPool={}", key,
                             ann != null ? ann.workerPoolName() : "default");
                 }
                 var verticalFuture = VertXPreStartup.getVertx().deployVerticle(value, opts);
                 verticleFutures.put(key, verticalFuture);
-            });
+            }
         }
         // Expose annotated prefixes globally for other components (like consumer registration filtering)
         annotatedPrefixes.clear();
@@ -281,10 +303,6 @@ public class VerticleBuilder
                 .map(Map.Entry::getValue);
     }
 
-    private List<String> getAppliedPackageNames(ClassInfo classInfo, Verticle annotation)
-    {
-        return getAppliedPackageNames(classInfo.getPackageName(), annotation);
-    }
 
     private List<String> getAppliedPackageNames(String packageName, Verticle annotation)
     {
