@@ -74,13 +74,11 @@
             <artifactId>vertx-mutiny</artifactId>
         </dependency>
 
-<!--
         <dependency>
             <groupId>com.guicedee</groupId>
             <artifactId>inject</artifactId>
             <scope>test</scope>
         </dependency>
--->
 
     </dependencies>
 
