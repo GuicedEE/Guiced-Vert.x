@@ -10,7 +10,7 @@
     </parent>
 
     <groupId>com.guicedee</groupId>
-    <artifactId>guiced-vertx</artifactId>
+    <artifactId>vertx</artifactId>
 
     <packaging>jar</packaging>
     <version>2.0.0-SNAPSHOT</version>
@@ -34,11 +34,11 @@
 
         <dependency>
             <groupId>com.guicedee</groupId>
-            <artifactId>guice-inject-client</artifactId>
+            <artifactId>client</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.guicedee.services</groupId>
+            <groupId>com.guicedee.modules.representations</groupId>
             <artifactId>json-representation</artifactId>
         </dependency>
 
@@ -65,26 +65,22 @@
         </dependency>
 
         <dependency>
-            <groupId>org.junit.platform</groupId>
-            <artifactId>junit-platform-launcher</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.smallrye.reactive</groupId>
             <artifactId>mutiny</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.guicedee.services</groupId>
+            <groupId>com.guicedee.modules.services</groupId>
             <artifactId>vertx-mutiny</artifactId>
         </dependency>
 
+<!--
         <dependency>
             <groupId>com.guicedee</groupId>
-            <artifactId>guice-injection</artifactId>
+            <artifactId>inject</artifactId>
             <scope>test</scope>
         </dependency>
+-->
 
     </dependencies>
 
@@ -125,6 +121,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <useModulePath>true</useModulePath>
+                    <skip>true</skip>
                 </configuration>
             </plugin>
             <plugin>

@@ -2,6 +2,7 @@
 
 [![Build](https://github.com/GuicedEE/Guiced-Vert.x/actions/workflows/build.yml/badge.svg)](https://github.com/GuicedEE/Guiced-Vert.x/actions/workflows/build.yml)
 [![Maven Central](https://img.shields.io/maven-central/v/com.guicedee/guiced-vertx)](https://central.sonatype.com/artifact/com.guicedee/guiced-vertx)
+[![Maven Snapshot](https://img.shields.io/nexus/s/com.guicedee/guiced-vertx?server=https%3A%2F%2Foss.sonatype.org&label=Maven%20Snapshot)](https://oss.sonatype.org/content/repositories/snapshots/com/guicedee/guiced-vertx/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](https://www.apache.org/licenses/LICENSE-2.0)
 
 ![Java 25+](https://img.shields.io/badge/Java-25%2B-green)
@@ -26,7 +27,7 @@ Guice-first integration layer for **Vert.x 5**. Bootstraps Vert.x from the [Guic
 ```xml
 <dependency>
   <groupId>com.guicedee</groupId>
-  <artifactId>guiced-vertx</artifactId>
+  <artifactId>vertx</artifactId>
 </dependency>
 ```
 
@@ -60,17 +61,19 @@ class VertxRuntimeConfig {}
 Method-based consumers are the preferred style — the registry scans your classpath and binds them automatically:
 
 ```java
+import io.smallrye.mutiny.Uni;
+
 public class GreetingConsumers {
 
     @VertxEventDefinition(value = "greeting.received",
-        options = @VertxEventOptions(worker = true))
-    public String handleGreeting(Message<String> message) {
+            options = @VertxEventOptions(worker = true))
+    public String handleGreeting(Message<Anything> message) {
         return "Hello " + message.body();
     }
 
     @VertxEventDefinition("user.created")
-    public Future<Void> trackUser(JsonObject payload) {
-        return Future.succeededFuture();
+    public Uni<Void> trackUser(Anything payload) {
+        return Uni.createFrom().voidItem();
     }
 }
 ```
@@ -88,12 +91,15 @@ public class GreetingConsumers {
 Inject a publisher using `@Named`:
 
 ```java
+import io.smallrye.mutiny.Uni;
+
 public class GreetingPublisher {
 
-    @Inject @Named("greeting.received")
+    @Inject
+    @Named("greeting.received")
     private VertxEventPublisher<String> publisher;
 
-    public Future<String> greet(String name) {
+    public Uni<String> greet(String name) {
         return publisher.send(name);       // request/response
     }
 

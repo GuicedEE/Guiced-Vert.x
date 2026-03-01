@@ -4,7 +4,7 @@ import com.google.inject.Key;
 import com.google.inject.TypeLiteral;
 import com.google.inject.name.Names;
 import com.guicedee.client.IGuiceContext;
-import com.guicedee.services.jsonrepresentation.IJsonRepresentation;
+import com.guicedee.modules.services.jsonrepresentation.IJsonRepresentation;
 import com.guicedee.vertx.VertxEventDefinition;
 import com.guicedee.vertx.VertxEventOptions;
 import com.guicedee.vertx.VertxEventPublisher;

@@ -1,7 +1,7 @@
 package com.guicedee.vertx.spi;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.guicedee.services.jsonrepresentation.IJsonRepresentation;
+import com.guicedee.modules.services.jsonrepresentation.IJsonRepresentation;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.MessageCodec;
 import lombok.extern.log4j.Log4j2;
