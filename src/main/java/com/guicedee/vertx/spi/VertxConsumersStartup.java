@@ -1,6 +1,5 @@
 package com.guicedee.vertx.spi;
 
-import com.guicedee.vertx.VertxEventDefinition;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
@@ -101,12 +100,12 @@ public class VertxConsumersStartup implements VerticleStartup<VertxConsumersStar
                         var verticleAnnotation = VerticleBuilder.getVerticleAnnotation(targetClass);
                         if (verticleAnnotation.isPresent()) {
                             var va = verticleAnnotation.get();
-                            if (va.workerPoolName() != null && !va.workerPoolName().isEmpty()) {
-                                options.setWorkerPoolName(va.workerPoolName());
+                            if (va.value() != null && !va.value().isEmpty()) {
+                                options.setWorkerPoolName(va.value());
                                 if (va.workerPoolSize() > 0) {
                                     options.setWorkerPoolSize(va.workerPoolSize());
                                 }
-                                log.debug("Event consumer for address {} inheriting worker pool '{}' from @Verticle", address, va.workerPoolName());
+                                log.debug("Event consumer for address {} inheriting worker pool '{}' from @Verticle", address, va.value());
                             }
                         }
                     }

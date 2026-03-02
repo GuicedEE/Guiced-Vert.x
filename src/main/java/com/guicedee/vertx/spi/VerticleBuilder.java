@@ -67,7 +67,7 @@ public class VerticleBuilder
             {
                 Verticle reconstructed = reconstructVerticleAnnotation(annotationInfo);
                 packageLevelVerticles.put(packageInfo.getName(), reconstructed);
-                log.info("Found package-level Verticle: {} - workerPoolName={}", packageInfo.getName(), reconstructed.workerPoolName());
+                log.info("Found package-level Verticle: {} - workerPoolName={}", packageInfo.getName(), reconstructed.value());
             }
         }
 
@@ -174,7 +174,7 @@ public class VerticleBuilder
                     public void start(Promise<Void> startPromise) throws Exception
                     {
                         // Name the current thread after the worker pool for observability
-                        String poolName = annotation.workerPoolName();
+                        String poolName = annotation.value();
                         if (poolName != null && !poolName.isEmpty())
                         {
                             Thread.currentThread().setName(poolName + "-startup");
@@ -280,7 +280,7 @@ public class VerticleBuilder
                     Verticle ann = verticleAnnotations.get(key);
                     opts = ann != null ? toDeploymentOptions(ann) : new DeploymentOptions();
                     log.info("Deploying Verticle: {} - workerPool={}", key,
-                            ann != null ? ann.workerPoolName() : "default");
+                            ann != null ? ann.value() : "default");
                 }
                 var verticalFuture = VertXPreStartup.getVertx().deployVerticle(value, opts);
                 verticleFutures.put(key, verticalFuture);
@@ -374,7 +374,7 @@ public class VerticleBuilder
             }
 
             @Override
-            public String workerPoolName()
+            public String value()
             {
                 Object val = params.getValue("workerPoolName");
                 return val != null ? val.toString() : "";
@@ -461,9 +461,9 @@ public class VerticleBuilder
             }
 
             @Override
-            public String workerPoolName()
+            public String value()
             {
-                return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_WORKER_POOL_NAME", vertical.workerPoolName());
+                return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_WORKER_POOL_NAME", vertical.value());
             }
 
             @Override
@@ -512,9 +512,9 @@ public class VerticleBuilder
         {
             d.setInstances(wrapped.defaultInstances());
         }
-        if (!Strings.isNullOrEmpty(wrapped.workerPoolName()))
+        if (!Strings.isNullOrEmpty(wrapped.value()))
         {
-            d.setWorkerPoolName(wrapped.workerPoolName());
+            d.setWorkerPoolName(wrapped.value());
         }
         if (wrapped.workerPoolSize() != 20)
         {

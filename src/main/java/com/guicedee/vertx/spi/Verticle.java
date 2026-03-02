@@ -65,7 +65,7 @@ public @interface Verticle {
      *
      * @return the worker pool name (required field, must be specified)
      */
-    String workerPoolName();
+    String value();
 
     /**
      * Specifies the size of the worker pool for this verticle.

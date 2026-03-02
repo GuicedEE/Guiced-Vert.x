@@ -7,8 +7,30 @@ on:
         description: Run a release to maven central
         default: false
   push:
+    branches:
+      - main
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches:
+      - main
+      - master
 jobs:
-  GuicedVertx:
+  verify:
+    if: ${{ github.event_name == 'pull_request' && github.event.action != 'closed' }}
+    uses: GuicedEE/Workflows/.github/workflows/projects.yml@master
+    with:
+      baseDir: ''
+      name: 'Guiced Vert.x Injection'
+      sonarProjectName: 'GuicedEE_Guiced-Vert.x'
+      sonarOrganization: 'guicedee'
+      skipDeploy: 'true'
+    secrets: inherit
+  deploy:
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
     uses: GuicedEE/Workflows/.github/workflows/projects.yml@master
     with:
       baseDir: ''

@@ -515,8 +515,8 @@ public class VertxEventRegistry {
                 var verticleAnnotation = VerticleBuilder.getVerticleAnnotation(methodClass);
                 if (verticleAnnotation.isPresent()) {
                     var va = verticleAnnotation.get();
-                    if (va.workerPoolName() != null && !va.workerPoolName().isEmpty()) {
-                        resolvedPool = va.workerPoolName();
+                    if (va.value() != null && !va.value().isEmpty()) {
+                        resolvedPool = va.value();
                         if (va.workerPoolSize() > 0) {
                             resolvedPoolSize = va.workerPoolSize();
                         }
