@@ -211,8 +211,12 @@ public class VerticleBuilder
                                             .anyMatch(startupPkg::startsWith);
                                     return !claimedByNested;
                                 })
-                                // Exclude any startup that was already dispatched by another verticle
-                                .filter(a -> dispatchedStartups.add(a.getClass().getName()))
+                                // Exclude any startup that was already dispatched by another verticle.
+                                // Core SPI startups (com.guicedee.vertx.spi) are exempt — they are
+                                // designed to run per-verticle with different assignedPackage values
+                                // (e.g. VertxConsumersStartup deploys consumers scoped to each verticle).
+                                .filter(a -> a.getClass().getPackage().getName().startsWith("com.guicedee.vertx.spi")
+                                        || dispatchedStartups.add(a.getClass().getName()))
                                 .forEachOrdered(startupEntry -> {
                                     //noinspection unchecked
                                     startupEntry.start(startPromise, vertx, this, verticlePkgName);
@@ -240,8 +244,10 @@ public class VerticleBuilder
                     startups.stream().map(ServiceLoader.Provider::get)
                             // Only include startups whose package does NOT start with any annotated prefix
                             .filter(a -> prefixes.stream().noneMatch(pkg -> !pkg.isEmpty() && a.getClass().getPackage().getName().startsWith(pkg)))
-                            // Exclude any startup already dispatched by a specific verticle
-                            .filter(a -> dispatchedStartups.add(a.getClass().getName()))
+                            // Exclude any startup already dispatched by a specific verticle.
+                            // Core SPI startups are exempt — they run per-verticle.
+                            .filter(a -> a.getClass().getPackage().getName().startsWith("com.guicedee.vertx.spi")
+                                    || dispatchedStartups.add(a.getClass().getName()))
                             .forEachOrdered(entry -> {
                                 //noinspection unchecked
                                 entry.start(startPromise, vertx, this, "");

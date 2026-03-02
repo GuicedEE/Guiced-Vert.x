@@ -27,6 +27,13 @@ public class EventConsumerVerticle extends AbstractVerticle {
     @Override
     public void start(Promise<Void> startPromise) {
         try {
+            // Guard against duplicate registration for the same address
+            if (!VertxEventRegistry.getRegisteredAddresses().add(address)) {
+                log.debug("Consumer for address '{}' already registered, skipping duplicate", address);
+                startPromise.tryComplete();
+                return;
+            }
+
             boolean localOnly = definition != null && definition.options().localOnly();
             MessageConsumer<?> consumer;
             if (localOnly) {
@@ -39,15 +46,7 @@ public class EventConsumerVerticle extends AbstractVerticle {
             // If supported in your version, you can enable it here.
 
             consumer.handler(message -> {
-                // Create a duplicated context for each message so that Hibernate Reactive
-                // sessions and other context-local state are fully isolated per message.
-                // This prevents concurrent messages on the same verticle from sharing a
-                // cached session (via withSession/withTransaction per-context caching).
-                // The duplicated context stays on the SAME event-loop thread, preserving
-                // thread-affinity with the SQL pool connection.
-                ContextInternal current = (ContextInternal) vertx.getOrCreateContext();
-                ContextInternal duplicated = current.duplicate();
-                duplicated.runOnContext(v ->
+                vertx.runOnContext(v ->
                     VertxEventRegistry
                             .dispatch(vertx, message, targetMethod, targetClass, definition)
                             .subscribe().with(

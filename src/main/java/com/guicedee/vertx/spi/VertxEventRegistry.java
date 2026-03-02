@@ -20,7 +20,6 @@ import lombok.extern.log4j.Log4j2;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -34,32 +33,33 @@ public class VertxEventRegistry {
     /**
      * Set of addresses that have already been registered to prevent duplicate consumer registration.
      */
+    @Getter
     private static final java.util.Set<String> registeredAddresses = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     @Getter
-    private static final Map<String, VertxEventDefinition> eventConsumerDefinitions = new HashMap<>();
+    private static final Map<String, VertxEventDefinition> eventConsumerDefinitions = new java.util.concurrent.ConcurrentHashMap<>();
 
     @Getter
-    private static final Map<String, Class> eventConsumerClass = new HashMap<>();
+    private static final Map<String, Class> eventConsumerClass = new java.util.concurrent.ConcurrentHashMap<>();
 
     @Getter
-    private static final Map<String, VertxEventDefinition> eventPublisherDefinitions = new HashMap<>();
+    private static final Map<String, VertxEventDefinition> eventPublisherDefinitions = new java.util.concurrent.ConcurrentHashMap<>();
 
     @Getter
-    private static final Map<String, Method> eventConsumerMethods = new HashMap<>();
+    private static final Map<String, Method> eventConsumerMethods = new java.util.concurrent.ConcurrentHashMap<>();
 
     @Getter
-    private static final Map<String, Class<?>> eventConsumerMethodClasses = new HashMap<>();
+    private static final Map<String, Class<?>> eventConsumerMethodClasses = new java.util.concurrent.ConcurrentHashMap<>();
 
     @Getter
-    private static Map<String, Key<?>> eventPublisherKeys = new HashMap<>();
+    private static Map<String, Key<?>> eventPublisherKeys = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * Map to store the reference types for consumers
      * Key: address, Value: reference type for the consumer's generic parameter
      */
     @Getter
-    private static Map<String, Type> eventConsumerReferenceTypes = new HashMap<>();
+    private static Map<String, Type> eventConsumerReferenceTypes = new java.util.concurrent.ConcurrentHashMap<>();
 
     private static VertxEventDefinition wrapEventDefinition(VertxEventDefinition definition) {
         if (definition == null) return null;
@@ -190,9 +190,19 @@ public class VertxEventRegistry {
     }
 
     /**
-     * Scans for classes with @VertxEventDefinition annotation and registers them
+     * Guard to ensure scanning only happens once.
+     */
+    private static final java.util.concurrent.atomic.AtomicBoolean scanned = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+    /**
+     * Scans for classes with @VertxEventDefinition annotation and registers them.
+     * This method is idempotent — subsequent calls after the first are no-ops.
      */
     public static void scanAndRegisterEvents() {
+        if (!scanned.compareAndSet(false, true)) {
+            log.debug("scanAndRegisterEvents() already completed, skipping re-scan");
+            return;
+        }
         log.info("Scanning for Vertx event consumers and publishers");
 
         // Scan for classes with @VertxEventDefinition annotation
@@ -392,7 +402,10 @@ public class VertxEventRegistry {
                                                 Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
                                                         ? ex.getCause() : ex;
                                                 log.error("Error dispatching message for {}: {}", message.address(), cause.getMessage(), cause);
-                                                try { message.fail(500, String.valueOf(cause.getMessage())); } catch (Throwable ignored2) { }
+                                                try {
+                                                    message.fail(500, String.valueOf(cause.getMessage()));
+                                                } catch (Throwable ignored2) {
+                                                }
                                             }
                                     );
                         });
@@ -507,8 +520,6 @@ public class VertxEventRegistry {
                         if (va.workerPoolSize() > 0) {
                             resolvedPoolSize = va.workerPoolSize();
                         }
-                        // If the @Verticle defines a worker pool, treat as worker dispatch
-                        isWorker = true;
                     }
                 }
             }
@@ -539,7 +550,8 @@ public class VertxEventRegistry {
                 }
             } else {
                 // Defer so the CallScope is established at subscription time
-                return handleMethodBasedConsumer(message, method, methodClass);
+                handleMethodBasedConsumer(message, method, methodClass);
+                return Uni.createFrom().voidItem();
             }
         } catch (Throwable t) {
             log.error("Error dispatching message on address {}: {}", message.address(), t.getMessage(), t);
@@ -567,16 +579,22 @@ public class VertxEventRegistry {
                 uniResult.subscribe().asCompletionStage().toCompletableFuture().join();
             } else if (invocationResult instanceof Future<?> futResult) {
                 Object res = futResult.toCompletionStage().toCompletableFuture().join();
-                try { message.reply(res); } catch (Throwable t) {
+                try {
+                    message.reply(res);
+                } catch (Throwable t) {
                     log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
                 }
             } else if (invocationResult instanceof java.util.concurrent.CompletableFuture<?> cfResult) {
                 Object res = cfResult.join();
-                try { message.reply(res); } catch (Throwable t) {
+                try {
+                    message.reply(res);
+                } catch (Throwable t) {
                     log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
                 }
             } else if (invocationResult != null) {
-                try { message.reply(invocationResult); } catch (Throwable t) {
+                try {
+                    message.reply(invocationResult);
+                } catch (Throwable t) {
                     log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
                 }
             }
@@ -585,118 +603,117 @@ public class VertxEventRegistry {
             Throwable cause = (t instanceof java.lang.reflect.InvocationTargetException && t.getCause() != null)
                     ? t.getCause() : t;
             log.error("Error invoking worker consumer {}.{}(): {}", methodClass.getSimpleName(), method.getName(), cause.getMessage(), cause);
-            try { message.fail(500, String.valueOf(cause.getMessage())); } catch (Throwable ignored) { }
+            try {
+                message.fail(500, String.valueOf(cause.getMessage()));
+            } catch (Throwable ignored) {
+            }
         }
     }
 
     /**
      * Handles a message by invoking a method-based consumer
      */
-    private static Uni<Void> handleMethodBasedConsumer(Message<?> message, Method method, Class<?> methodClass) {
+    private static void handleMethodBasedConsumer(Message<?> message, Method method, Class<?> methodClass) {
         // Execute the consumer invocation within a Uni so interceptors/scopes can participate.
-        return Uni.createFrom().deferred(() -> {
-                    // Obtain target instance from Guice
-                    Object instance = IGuiceContext.get(methodClass);
+        VertXPreStartup.getVertx().runOnContext(_ -> {
+            // Obtain target instance from Guice
+            Object instance = IGuiceContext.get(methodClass);
 
-                    // Prepare parameters
-                    Object[] params = prepareMethodParameters(method, message);
+            // Prepare parameters
+            Object[] params = prepareMethodParameters(method, message);
+            // Invoke on the current thread (event-loop or worker depending on dispatch)
+            Object invocationResult;
+            try {
+                invocationResult = method.invoke(instance, params);
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                Throwable cause = (e instanceof InvocationTargetException && e.getCause() != null) ? e.getCause() : e;
+                log.error("Error invoking consumer {}.{}(): {}", methodClass.getSimpleName(), method.getName(), cause.getMessage(), cause);
+                try {
+                    message.fail(500, String.valueOf(cause.getMessage()));
+                } catch (Throwable ignored) {
+                }
+                return;
+            }
 
-                    // Ensure source is correctly set for the current call scope
-                   // CallScopeProperties csp = IGuiceContext.get(CallScopeProperties.class);
-                   // csp.setSource(CallScopeSource.VertXConsumer);
-
-                    // Invoke on the current thread (event-loop or worker depending on dispatch)
-                    Object invocationResult;
-                    try {
-                        invocationResult = method.invoke(instance, params);
-                    } catch (IllegalAccessException | InvocationTargetException e) {
-                        throw new RuntimeException(e);
-                    }
-
-                    // If the invoked method already returned a Uni, integrate it into the chain.
-                    if (invocationResult instanceof Uni) {
-                        @SuppressWarnings("unchecked")
-                        Uni<Object> uniResult = (Uni<Object>) invocationResult;
-                        return uniResult
-                                .onItem().invoke(res -> {
-                                    // Reply with the resulting item (may be null)
-                                    try {
-                                        message.reply(res);
-                                    } catch (Throwable t) {
-                                        log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
-                                    }
-                                })
-                                .onFailure().invoke(ex -> {
-                                    try {
-                                        message.fail(500, String.valueOf(ex.getMessage()));
-                                    } catch (Throwable ignored) {
-                                    }
-                                })
-                                .replaceWithVoid();
-                    }
-
-                    // Handle Vert.x Future result by converting to Uni
-                    if (invocationResult instanceof Future) {
-                        Future<?> fut = (Future<?>) invocationResult;
-                        return Uni.createFrom().completionStage(fut.toCompletionStage())
-                                .onItem().invoke(res -> {
-                                    try {
-                                        message.reply(res);
-                                    } catch (Throwable t) {
-                                        log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
-                                    }
-                                })
-                                .onFailure().invoke(ex -> {
-                                    try {
-                                        message.fail(500, String.valueOf(ex.getMessage()));
-                                    } catch (Throwable ignored) {
-                                    }
-                                })
-                                .replaceWithVoid();
-                    }
-
-                    // Handle CompletableFuture similarly
-                    if (invocationResult instanceof java.util.concurrent.CompletableFuture) {
-                        java.util.concurrent.CompletableFuture<?> cf = (java.util.concurrent.CompletableFuture<?>) invocationResult;
-                        return Uni.createFrom().completionStage(cf)
-                                .onItem().invoke(res -> {
-                                    try {
-                                        message.reply(res);
-                                    } catch (Throwable t) {
-                                        log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
-                                    }
-                                })
-                                .onFailure().invoke(ex -> {
-                                    try {
-                                        message.fail(500, String.valueOf(ex.getMessage()));
-                                    } catch (Throwable ignored) {
-                                    }
-                                })
-                                .replaceWithVoid();
-                    }
-
-                    // Synchronous result
-                    if (invocationResult == null) {
-                        // No reply for void
-                        return Uni.createFrom().voidItem();
-                    } else {
-                        try {
-                            message.reply(invocationResult);
-                        } catch (Throwable t) {
-                            log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
-                        }
-                        return Uni.createFrom().voidItem();
-                    }
-                })
-                .onFailure().invoke(ex -> {
-                    Throwable cause = (ex instanceof java.lang.reflect.InvocationTargetException && ex.getCause() != null)
-                            ? ex.getCause() : ex;
-                    log.error("Error invoking method-based consumer {}.{}()", methodClass.getSimpleName(), method.getName(), cause);
-                    try {
-                        message.fail(500, String.valueOf(cause.getMessage()));
-                    } catch (Throwable ignored) {
-                    }
-                });
+            // If the invoked method already returned a Uni, integrate it into the chain.
+            if (invocationResult instanceof Uni<?>) {
+                @SuppressWarnings("unchecked")
+                Uni<Object> uniResult = (Uni<Object>) invocationResult;
+                uniResult
+                        .onItem().invoke(res -> {
+                            // Reply with the resulting item (may be null)
+                            try {
+                                message.reply(res);
+                            } catch (Throwable t) {
+                                log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
+                            }
+                        })
+                        .onFailure().invoke(ex -> {
+                            log.error("Uni failure for consumer on {}: {}", message.address(), ex.getMessage(), ex);
+                            try {
+                                message.fail(500, String.valueOf(ex.getMessage()));
+                            } catch (Throwable ignored) {
+                            }
+                        })
+                        .subscribe().with(
+                                ignored -> { /* terminal — reply already sent above */ },
+                                ex -> log.error("Unexpected error in Uni subscription for {}: {}", message.address(), ex.getMessage(), ex)
+                        );
+            }
+            // Handle Vert.x Future result by converting to Uni
+            else if (invocationResult instanceof Future<?> fut) {
+                Uni.createFrom().completionStage(fut.toCompletionStage())
+                        .onItem().invoke(res -> {
+                            try {
+                                message.reply(res);
+                            } catch (Throwable t) {
+                                log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
+                            }
+                        })
+                        .onFailure().invoke(ex -> {
+                            log.error("Future failure for consumer on {}: {}", message.address(), ex.getMessage(), ex);
+                            try {
+                                message.fail(500, String.valueOf(ex.getMessage()));
+                            } catch (Throwable ignored) {
+                            }
+                        })
+                        .subscribe().with(
+                                ignored -> { /* terminal — reply already sent above */ },
+                                ex -> log.error("Unexpected error in Future subscription for {}: {}", message.address(), ex.getMessage(), ex)
+                        );
+            }
+            // Handle CompletableFuture similarly
+            else if (invocationResult instanceof java.util.concurrent.CompletableFuture<?> cf) {
+                Uni.createFrom().completionStage(cf)
+                        .onItem().invoke(res -> {
+                            try {
+                                message.reply(res);
+                            } catch (Throwable t) {
+                                log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
+                            }
+                        })
+                        .onFailure().invoke(ex -> {
+                            log.error("CompletableFuture failure for consumer on {}: {}", message.address(), ex.getMessage(), ex);
+                            try {
+                                message.fail(500, String.valueOf(ex.getMessage()));
+                            } catch (Throwable ignored) {
+                            }
+                        })
+                        .subscribe().with(
+                                ignored -> { /* terminal — reply already sent above */ },
+                                ex -> log.error("Unexpected error in CompletableFuture subscription for {}: {}", message.address(), ex.getMessage(), ex)
+                        );
+            }
+            // Synchronous result
+            else if (invocationResult != null) {
+                try {
+                    message.reply(invocationResult);
+                } catch (Throwable t) {
+                    log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
+                }
+            }
+            // null result = void method, no reply needed
+        });
     }
 
     /**
