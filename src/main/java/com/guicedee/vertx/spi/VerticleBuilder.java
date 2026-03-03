@@ -39,6 +39,17 @@ public class VerticleBuilder
      */
     private static final Set<String> dispatchedStartups = ConcurrentHashMap.newKeySet();
 
+    /**
+     * Resets all static state, allowing re-initialization on the next context boot.
+     */
+    public static void reset() {
+        verticlePackages.clear();
+        verticleFutures.clear();
+        annotatedPrefixes.clear();
+        verticleAnnotations.clear();
+        dispatchedStartups.clear();
+    }
+
 
     /**
      * Finds and prepares the application's Verticles for deployment.

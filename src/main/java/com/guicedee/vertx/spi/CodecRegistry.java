@@ -20,7 +20,14 @@ public class CodecRegistry {
      * Key: codec name, Value: true if registered
      */
     private static final Map<String, Boolean> registeredCodecs = new HashMap<>();
-    
+
+    /**
+     * Resets the registered codecs tracker, allowing re-registration on the next context boot.
+     */
+    public static void reset() {
+        registeredCodecs.clear();
+    }
+
     /**
      * Pattern for converting camel case to kebab case
      */

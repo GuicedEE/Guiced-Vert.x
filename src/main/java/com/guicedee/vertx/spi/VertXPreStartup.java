@@ -492,7 +492,13 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
 
     @Override
     public void onDestroy() {
-        vertx.close();
+        VertxEventRegistry.reset();
+        VerticleBuilder.reset();
+        CodecRegistry.reset();
+        if (vertx != null) {
+            vertx.close();
+            vertx = null;
+        }
     }
 
     @Override

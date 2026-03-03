@@ -61,6 +61,23 @@ public class VertxEventRegistry {
     @Getter
     private static Map<String, Type> eventConsumerReferenceTypes = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /**
+     * Resets all static state in the registry, allowing re-initialization
+     * on the next context boot. Called during context destroy.
+     */
+    public static void reset() {
+        scanned.set(false);
+        workerExecutors.clear();
+        registeredAddresses.clear();
+        eventConsumerDefinitions.clear();
+        eventConsumerClass.clear();
+        eventPublisherDefinitions.clear();
+        eventConsumerMethods.clear();
+        eventConsumerMethodClasses.clear();
+        eventPublisherKeys.clear();
+        eventConsumerReferenceTypes.clear();
+    }
+
     private static VertxEventDefinition wrapEventDefinition(VertxEventDefinition definition) {
         if (definition == null) return null;
         // Capture the original address value before creating the wrapper
