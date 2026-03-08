@@ -229,7 +229,7 @@ public class VertxEventRegistry {
                 .filter(classInfo -> !classInfo.isInterfaceOrAnnotation() && !classInfo.isAbstract())
                 .toList();
 
-        log.info("Found {} consumer classes with @VertxEventDefinition", consumerClasses.size());
+        log.debug("Found {} consumer classes with @VertxEventDefinition", consumerClasses.size());
 
         for (var consumerClassInfo : consumerClasses) {
             try {

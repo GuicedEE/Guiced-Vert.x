@@ -67,19 +67,8 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             // Register dynamic codecs for all event types up-front
             CodecRegistry.createAndRegisterCodecsForAllEventTypes(vertx);
 
-            // Deploy verticles - each verticle will register its assigned consumers via VertxConsumersStartup
-            // The returned futures are collected so the startup lifecycle can wait for them
-            new VerticleBuilder().findVerticles();
-
-            // Return the verticle deployment futures so the lifecycle waits for them to complete
-            // before moving to post-startups
-            Map<String, Future<?>> verticleFutures = VerticleBuilder.getVerticleFutures();
-            if (verticleFutures != null && !verticleFutures.isEmpty()) {
-                return verticleFutures.values().stream()
-                        .map(f -> f.map(v -> true))
-                        .map(f -> (Future<Boolean>) f)
-                        .toList();
-            }
+            // Verticle deployment is deferred to VertxVerticlePostStartup (IGuicePostStartup)
+            // so that VerticleStartup implementations can safely use the Guice injector.
         }
         return List.of(Future.succeededFuture(true));
     }

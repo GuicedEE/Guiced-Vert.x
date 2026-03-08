@@ -1,4 +1,5 @@
 import com.guicedee.client.services.lifecycle.IGuiceModule;
+import com.guicedee.client.services.lifecycle.IGuicePostStartup;
 import com.guicedee.client.services.lifecycle.IGuicePreDestroy;
 import com.guicedee.client.services.lifecycle.IGuicePreStartup;
 import com.guicedee.vertx.*;
@@ -32,7 +33,7 @@ module com.guicedee.vertx {
     opens com.guicedee.vertx.spi to com.google.guice;
 
     provides IGuicePreStartup with VertXPreStartup;
-    //provides IGuicePostStartup with VertXPostStartup;
+    provides IGuicePostStartup with VertxVerticlePostStartup;
     provides IGuicePreDestroy with VertXPostStartup;
     provides IGuiceModule with VertXModule;
     provides com.guicedee.client.services.lifecycle.IGuiceConfigurator with VertxClassScanConfig;
