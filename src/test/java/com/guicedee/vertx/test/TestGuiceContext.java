@@ -4,6 +4,7 @@ import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.guicedee.client.IGuiceContext;
+import com.guicedee.client.services.IDefaultService;
 import com.guicedee.client.services.IGuiceConfig;
 import com.guicedee.client.services.lifecycle.IGuicePreDestroy;
 import com.guicedee.client.services.lifecycle.IGuicePreStartup;
@@ -122,12 +123,12 @@ public class TestGuiceContext implements IGuiceContext {
     }
 
     @Override
-    public <T extends Comparable<T>> Set<T> getLoader(Class<T> loaderType, ServiceLoader<T> serviceLoader) {
+    public <T extends IDefaultService<T>> Set<T> getLoader(Class<T> loaderType, ServiceLoader<T> serviceLoader) {
         return IGuiceContext.loaderToSet(serviceLoader);
     }
 
     @Override
-    public <T> Set<T> getLoader(Class<T> loaderType, boolean dontInject, ServiceLoader<T> serviceLoader) {
+    public <T extends IDefaultService<T>> Set<T> getLoader(Class<T> loaderType, boolean dontInject, ServiceLoader<T> serviceLoader) {
         return IGuiceContext.loaderToSetNoInjection(serviceLoader);
     }
 

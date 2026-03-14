@@ -3,7 +3,7 @@ package com.guicedee.vertx.implementations;
 import com.guicedee.client.services.IGuiceConfig;
 import com.guicedee.client.services.lifecycle.IGuiceConfigurator;
 
-public class VertxClassScanConfig implements IGuiceConfigurator {
+public class VertxClassScanConfig implements IGuiceConfigurator<VertxClassScanConfig> {
     @Override
     public IGuiceConfig<?> configure(IGuiceConfig<?> config) {
         config.setIgnoreClassVisibility(true)
