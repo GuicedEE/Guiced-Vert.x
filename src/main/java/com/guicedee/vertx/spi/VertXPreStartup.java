@@ -57,7 +57,19 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             // Apply additional configurations from ServiceLoader
             applyServiceLoaderConfigurations(builder);
 
-            // Build the Vertx instance
+            if (clusterMode) {
+                // Clustered mode — buildClustered() returns Future<Vertx>
+                return List.of(builder.buildClustered().map(clusteredVertx -> {
+                    vertx = clusteredVertx;
+                    // Scan event definitions early so codec registry has full type info
+                    VertxEventRegistry.scanAndRegisterEvents();
+                    // Register dynamic codecs for all event types up-front
+                    CodecRegistry.createAndRegisterCodecsForAllEventTypes(vertx);
+                    return true;
+                }));
+            }
+
+            // Build the Vertx instance (non-clustered)
             vertx = builder.build();
 
             // Scan event definitions early so codec registry has full type info
@@ -464,9 +476,14 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
         }
     }
 
+    private boolean clusterMode = false;
+
     private void applyServiceLoaderConfigurations(VertxBuilder builder) {
         ServiceLoader<VertxConfigurator> load = ServiceLoader.load(VertxConfigurator.class);
         for (VertxConfigurator a : load) {
+            if (a instanceof ClusterVertxConfigurator) {
+                clusterMode = true;
+            }
             builder = a.builder(builder);
         }
     }

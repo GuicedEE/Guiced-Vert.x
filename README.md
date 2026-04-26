@@ -21,6 +21,7 @@ Guice-first integration layer for **Vert.x 5**. Bootstraps Vert.x from the [Guic
 - **Per-address consumer verticles** — each consumer runs in its own dedicated verticle
 - **Publisher-side throttling** — FIFO queuing with configurable rate, no message loss
 - **Runtime configuration** — annotations (`@VertX`, `@EventBusOptions`, `@FileSystemOptions`, `@MetricsOptions`) plus SPI hooks (`VertxConfigurator`, `ClusterVertxConfigurator`, `VerticleStartup`)
+- **Authentication & Authorization** — annotation-driven auth via `@AuthOptions` with `ChainAuth`, `KeyStoreOptions`, `PubSecKeyOptions`, PRNG, and SPI-based provider registration
 
 ## 📦 Installation
 
@@ -35,13 +36,13 @@ Guice-first integration layer for **Vert.x 5**. Bootstraps Vert.x from the [Guic
 <summary>Gradle (Kotlin DSL)</summary>
 
 ```kotlin
-implementation("com.guicedee:guiced-vertx:2.0.0-RC9")
+implementation("com.guicedee:guiced-vertx:2.0.0-RC10")
 ```
 </details>
 
 ## 🚀 Quick Start
 
-Bootstrapping is automatic — call `IGuiceContext.instance()` and `VertXModule` is discovered via SPI:
+Bootstrapping is automatic — call `IGuiceContext.instance().inject()` and `VertXModule` is discovered via SPI:
 
 ```java
 IGuiceContext.registerModuleForScanning.add("my.app");
@@ -145,11 +146,219 @@ Override event bus addresses and consumer options at runtime via system properti
 | `VERTX_EVENT_MAX_BUFFERED_MESSAGES` | int | Backpressure buffer limit |
 | `VERTX_EVENT_RESUME_AT_MESSAGES` | int | Resume threshold |
 
+## 🔐 Authentication & Authorization
+
+Built-in support for [Vert.x Common Auth](https://vertx.io/docs/vertx-auth-common/java/) — annotation-driven configuration with Guice injection for all auth types.
+
+### Quick Setup
+
+Place `@AuthOptions` on a class or `package-info.java`:
+
+```java
+@AuthOptions(
+    chainMode = AuthOptions.ChainMode.ANY,
+    keyStore = @AuthKeyStore(
+        path = "/path/to/keystore.pkcs12",
+        type = "pkcs12",
+        password = "changeit"
+    ),
+    pubSecKeys = {
+        @AuthPubSecKey(algorithm = "RS256", path = "/path/to/public.pem")
+    },
+    prngAlgorithm = "SHA1PRNG",
+    leeway = 5
+)
+package com.example.auth;
+```
+
+### Authentication Providers (SPI)
+
+Register custom authentication providers via `IGuicedAuthenticationProvider`:
+
+```java
+public class MyAuthProvider implements IGuicedAuthenticationProvider {
+    @Override
+    public AuthenticationProvider getAuthenticationProvider() {
+        // Return your provider implementation
+        // e.g. UsernamePasswordCredentials-based, JWT, OAuth2, etc.
+        return myProvider;
+    }
+}
+```
+
+Register in `module-info.java`:
+```java
+provides IGuicedAuthenticationProvider with MyAuthProvider;
+```
+
+Multiple providers are combined via `ChainAuth` (ANY = first match wins, ALL = all must pass).
+
+### Authorization Providers (SPI)
+
+Register custom authorization providers via `IGuicedAuthorizationProvider`:
+
+```java
+public class MyAuthzProvider implements IGuicedAuthorizationProvider {
+    @Override
+    public AuthorizationProvider getAuthorizationProvider() {
+        return myAuthorizationProvider;
+    }
+}
+```
+
+### Guice Bindings
+
+| Type | Scope | Description |
+|---|---|---|
+| `AuthenticationProvider` | Singleton | Primary provider (or `ChainAuth` if multiple) |
+| `ChainAuth` | Singleton | The authentication chain |
+| `AuthorizationProvider` | Singleton | Primary authorization provider |
+| `Set<AuthorizationProvider>` | Multibinder | All registered authorization providers |
+| `VertxContextPRNG` | Singleton | Shared PRNG (non-blocking, event-loop safe) |
+| `KeyStoreOptions` | Instance | JVM keystore config (if configured) |
+| `Set<PubSecKeyOptions>` | Multibinder | PEM key configs (if configured) |
+
+### Using Authentication
+
+```java
+public class LoginService {
+    @Inject private AuthenticationProvider authProvider;
+
+    public Future<User> login(String username, String password) {
+        return authProvider.authenticate(
+            new UsernamePasswordCredentials(username, password));
+    }
+}
+```
+
+### Using Authorization
+
+Vert.x provides multiple authorization types:
+
+```java
+// Role-based
+RoleBasedAuthorization.create("admin").match(user);
+
+// Permission-based
+PermissionBasedAuthorization.create("printer:print").match(user);
+
+// Wildcard permission
+WildcardPermissionBasedAuthorization.create("printer:*").match(user);
+
+// Logical combinations
+AndAuthorization.create()
+    .addAuthorization(RoleBasedAuthorization.create("admin"))
+    .addAuthorization(PermissionBasedAuthorization.create("users:write"));
+
+OrAuthorization.create()
+    .addAuthorization(RoleBasedAuthorization.create("admin"))
+    .addAuthorization(RoleBasedAuthorization.create("manager"));
+
+NotAuthorization.create(RoleBasedAuthorization.create("guest"));
+```
+
+Load authorizations onto a user:
+
+```java
+@Inject private Set<AuthorizationProvider> authzProviders;
+
+public Future<Void> loadAuthorizations(User user) {
+    List<Future<Void>> futures = authzProviders.stream()
+        .map(p -> p.getAuthorizations(user))
+        .toList();
+    return Future.all(futures).mapEmpty();
+}
+```
+
+### User Principal & Attributes
+
+```java
+// Access principal data (source identity)
+JsonObject principal = user.principal();
+
+// Access computed attributes
+JsonObject attributes = user.attributes();
+
+// Unified lookup (attributes first, then principal)
+if (user.containsKey("sub")) {
+    String sub = user.get("sub");
+}
+
+// Token expiration (exp, iat, nbf with leeway)
+boolean expired = user.expired();
+```
+
+### PRNG (Pseudo Random Number Generator)
+
+The shared `VertxContextPRNG` is event-loop safe and injectable:
+
+```java
+@Inject private VertxContextPRNG prng;
+
+String token = prng.nextString(32);
+int randomInt = prng.nextInt();
+```
+
+Configure via annotation or environment variables:
+
+| Attribute | Variable | Default | System Property |
+|---|---|---|---|
+| `prngAlgorithm` | `VERTX_AUTH_PRNG_ALGORITHM` | (system) | `io.vertx.ext.auth.prng.algorithm` |
+| `prngSeedInterval` | `VERTX_AUTH_PRNG_SEED_INTERVAL` | 300000 ms | `io.vertx.ext.auth.prng.seed.interval` |
+| `prngSeedBits` | `VERTX_AUTH_PRNG_SEED_BITS` | 64 | `io.vertx.ext.auth.prng.seed.bits` |
+
+### Working with Keys
+
+**JVM KeyStore** (pkcs12, jks):
+
+```java
+@AuthOptions(keyStore = @AuthKeyStore(
+    path = "/path/to/keystore.pkcs12",
+    type = "pkcs12",
+    password = "changeit",
+    alias = "mykey",
+    aliasPassword = "keypass"
+))
+```
+
+Import PEM to PKCS12: `openssl pkcs12 -export -in cert.pem -out keystore.pkcs12 -name myAlias -noiter -nomaciter`
+
+**PEM Keys** (PKCS8 format):
+
+```java
+@AuthOptions(pubSecKeys = {
+    @AuthPubSecKey(algorithm = "RS256", path = "/path/to/public.pem"),
+    @AuthPubSecKey(algorithm = "ES256", buffer = "-----BEGIN PUBLIC KEY-----\n...")
+})
+```
+
+Convert to PKCS8: `openssl pkcs8 -topk8 -inform PEM -in private.pem -out private_key.pem -nocrypt`
+
+### Environment Variable Overrides
+
+| Property | Variable |
+|---|---|
+| `chainMode()` | `VERTX_AUTH_CHAIN_MODE` |
+| `keyStore.path()` | `VERTX_AUTH_KEYSTORE_PATH` |
+| `keyStore.type()` | `VERTX_AUTH_KEYSTORE_TYPE` |
+| `keyStore.password()` | `VERTX_AUTH_KEYSTORE_PASSWORD` |
+| `keyStore.alias()` | `VERTX_AUTH_KEYSTORE_ALIAS` |
+| `keyStore.aliasPassword()` | `VERTX_AUTH_KEYSTORE_ALIAS_PASSWORD` |
+| `pubSecKeys[n].algorithm()` | `VERTX_AUTH_PUBSECKEY_n_ALGORITHM` |
+| `pubSecKeys[n].buffer()` | `VERTX_AUTH_PUBSECKEY_n_BUFFER` |
+| `pubSecKeys[n].path()` | `VERTX_AUTH_PUBSECKEY_n_PATH` |
+| `prngAlgorithm()` | `VERTX_AUTH_PRNG_ALGORITHM` |
+| `prngSeedInterval()` | `VERTX_AUTH_PRNG_SEED_INTERVAL` |
+| `prngSeedBits()` | `VERTX_AUTH_PRNG_SEED_BITS` |
+| `leeway()` | `VERTX_AUTH_LEEWAY` |
+
 ## 🔄 Startup Flow
 
 ```
 IGuiceContext.instance()
  └─ VertXPreStartup        → builds Vertx, scans events, registers codecs
+ └─ VertxAuthPreStartup    → scans @AuthOptions, discovers auth/authz providers,
+                              builds ChainAuth, configures PRNG and key stores
      └─ VerticleBuilder     → deploys app verticles from @Verticle annotations
          └─ VertxConsumersStartup → deploys one EventConsumerVerticle per address
 ```
@@ -161,6 +370,8 @@ IGuiceContext.instance()
 | `VertxConfigurator` | Customize `VertxOptions` during startup |
 | `ClusterVertxConfigurator` | Configure clustering |
 | `VerticleStartup` | Register custom verticles from Guice |
+| `IGuicedAuthenticationProvider` | Contribute authentication providers to `ChainAuth` |
+| `IGuicedAuthorizationProvider` | Contribute authorization providers |
 
 ## 🗺️ Module Graph
 
@@ -169,10 +380,11 @@ com.guicedee.vertx
  ├── com.guicedee.client              (SPI contracts)
  ├── com.guicedee.jsonrepresentation  (JSON codec support)
  ├── io.vertx.core                    (Vert.x runtime)
+ ├── io.vertx.auth.common             (Authentication & Authorization)
  ├── io.vertx.mutiny                  (Mutiny bindings)
  ├── io.smallrye.mutiny               (reactive streams)
- ├── com.fasterxml.jackson.databind   (JSON mapping)
- └── jakarta.cdi                      (CDI annotations)
+ ├── io.github.classgraph             (annotation scanning)
+ └── com.fasterxml.jackson.databind   (JSON mapping)
 ```
 
 ## 🤝 Contributing
