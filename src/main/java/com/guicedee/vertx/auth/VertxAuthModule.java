@@ -2,7 +2,7 @@ package com.guicedee.vertx.auth;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
-import com.google.inject.multibindings.Multibinder;
+import com.google.inject.name.Names;
 import com.guicedee.client.services.lifecycle.IGuiceModule;
 import com.guicedee.vertx.spi.VertXPreStartup;
 import io.vertx.ext.auth.ChainAuth;
@@ -58,12 +58,13 @@ public class VertxAuthModule extends AbstractModule implements IGuiceModule<Vert
             log.info("Bound single AuthenticationProvider");
         }
 
-        // Bind authorization providers via Multibinder
-        Multibinder<AuthorizationProvider> authzMultibinder = Multibinder.newSetBinder(binder(), AuthorizationProvider.class);
+        // Bind authorization providers with @Named qualifiers
         List<AuthorizationProvider> authzProviders = VertxAuthPreStartup.getAuthorizationProviders();
-        for (AuthorizationProvider provider : authzProviders)
+        for (int i = 0; i < authzProviders.size(); i++)
         {
-            authzMultibinder.addBinding().toInstance(provider);
+            AuthorizationProvider provider = authzProviders.get(i);
+            String name = provider.getClass().getSimpleName();
+            bind(AuthorizationProvider.class).annotatedWith(Names.named(name)).toInstance(provider);
         }
 
         // Also bind the first as the primary AuthorizationProvider
@@ -83,14 +84,13 @@ public class VertxAuthModule extends AbstractModule implements IGuiceModule<Vert
 
         // Bind PubSecKeyOptions list if configured
         List<PubSecKeyOptions> pskList = VertxAuthPreStartup.getPubSecKeyOptionsList();
+        for (int i = 0; i < pskList.size(); i++)
+        {
+            bind(PubSecKeyOptions.class).annotatedWith(Names.named("pubSecKey-" + i)).toInstance(pskList.get(i));
+        }
         if (!pskList.isEmpty())
         {
-            Multibinder<PubSecKeyOptions> pskMultibinder = Multibinder.newSetBinder(binder(), PubSecKeyOptions.class);
-            for (PubSecKeyOptions psk : pskList)
-            {
-                pskMultibinder.addBinding().toInstance(psk);
-            }
-            log.info("Bound {} PubSecKeyOptions via Multibinder", pskList.size());
+            log.info("Bound {} PubSecKeyOptions with @Named qualifiers", pskList.size());
         }
 
         // Bind OAuth2Auth if available (optional module)
@@ -339,3 +339,4 @@ public class VertxAuthModule extends AbstractModule implements IGuiceModule<Vert
         }
     }
 }
+

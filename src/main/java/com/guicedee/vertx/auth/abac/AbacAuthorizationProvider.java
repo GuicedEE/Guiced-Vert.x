@@ -8,8 +8,6 @@ import io.github.classgraph.ScanResult;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.abac.Policy;
-import io.vertx.ext.auth.abac.PolicyBasedAuthorizationProvider;
 import io.vertx.ext.auth.authorization.AuthorizationProvider;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -40,7 +38,7 @@ import java.util.Set;
 public class AbacAuthorizationProvider implements IGuicedAuthorizationProvider
 {
     @Getter
-    private static PolicyBasedAuthorizationProvider policyProvider;
+    private static io.vertx.ext.auth.abac.PolicyBasedAuthorizationProvider policyProvider;
 
     @Getter
     private static AbacOptions abacOptions;
@@ -61,7 +59,7 @@ public class AbacAuthorizationProvider implements IGuicedAuthorizationProvider
 
         try
         {
-            policyProvider = PolicyBasedAuthorizationProvider.create();
+            policyProvider = io.vertx.ext.auth.abac.PolicyBasedAuthorizationProvider.create();
             int count = 0;
 
             // 1. Inline policies
@@ -70,7 +68,7 @@ public class AbacAuthorizationProvider implements IGuicedAuthorizationProvider
                 String resolved = resolveEnvPlaceholders(policyJson);
                 if (!resolved.isBlank())
                 {
-                    Policy policy = new Policy(new JsonObject(resolved));
+                    io.vertx.ext.auth.abac.Policy policy = new io.vertx.ext.auth.abac.Policy(new JsonObject(resolved));
                     policyProvider.addPolicy(policy);
                     count++;
                     log.debug("ABAC: Loaded inline policy: {}", policy.getName());
@@ -105,7 +103,7 @@ public class AbacAuthorizationProvider implements IGuicedAuthorizationProvider
                         JsonArray array = new JsonArray(content);
                         for (int i = 0; i < array.size(); i++)
                         {
-                            Policy policy = new Policy(array.getJsonObject(i));
+                            io.vertx.ext.auth.abac.Policy policy = new io.vertx.ext.auth.abac.Policy(array.getJsonObject(i));
                             policyProvider.addPolicy(policy);
                             count++;
                             log.debug("ABAC: Loaded policy from file {}: {}", resolved, policy.getName());
@@ -114,7 +112,7 @@ public class AbacAuthorizationProvider implements IGuicedAuthorizationProvider
                     else
                     {
                         // Single policy
-                        Policy policy = new Policy(new JsonObject(content));
+                        io.vertx.ext.auth.abac.Policy policy = new io.vertx.ext.auth.abac.Policy(new JsonObject(content));
                         policyProvider.addPolicy(policy);
                         count++;
                         log.debug("ABAC: Loaded policy from file {}: {}", resolved, policy.getName());
@@ -135,7 +133,7 @@ public class AbacAuthorizationProvider implements IGuicedAuthorizationProvider
                 var policies = spiProvider.getPolicies();
                 if (policies != null)
                 {
-                    for (Policy policy : policies)
+                    for (io.vertx.ext.auth.abac.Policy policy : policies)
                     {
                         policyProvider.addPolicy(policy);
                         count++;

@@ -7,8 +7,6 @@ import com.guicedee.vertx.spi.VertXPreStartup;
 import io.github.classgraph.ScanResult;
 import io.vertx.core.Vertx;
 import io.vertx.ext.auth.authentication.AuthenticationProvider;
-import io.vertx.ext.auth.ldap.LdapAuthentication;
-import io.vertx.ext.auth.ldap.LdapAuthenticationOptions;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
@@ -30,7 +28,7 @@ import lombok.extern.log4j.Log4j2;
 public class LdapAuthenticationProvider implements IGuicedAuthenticationProvider
 {
     @Getter
-    private static LdapAuthentication ldapAuth;
+    private static io.vertx.ext.auth.ldap.LdapAuthentication ldapAuth;
 
     @Getter
     private static LdapAuthOptions ldapAuthOptions;
@@ -62,13 +60,13 @@ public class LdapAuthenticationProvider implements IGuicedAuthenticationProvider
                 return null;
             }
 
-            var opts = new LdapAuthenticationOptions()
+            var opts = new io.vertx.ext.auth.ldap.LdapAuthenticationOptions()
                     .setUrl(url)
                     .setAuthenticationQuery(authQuery)
                     .setAuthenticationMechanism(mechanism)
                     .setReferral(referral);
 
-            ldapAuth = LdapAuthentication.create(vertx, opts);
+            ldapAuth = io.vertx.ext.auth.ldap.LdapAuthentication.create(vertx, opts);
             log.info("LDAP authentication provider created: url={}, query={}, mechanism={}, referral={}",
                     url, authQuery, mechanism, referral);
             return ldapAuth;

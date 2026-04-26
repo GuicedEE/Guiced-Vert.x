@@ -7,7 +7,6 @@ import com.guicedee.vertx.spi.VertXPreStartup;
 import io.github.classgraph.ScanResult;
 import io.vertx.core.Vertx;
 import io.vertx.ext.auth.authentication.AuthenticationProvider;
-import io.vertx.ext.auth.htdigest.HtdigestAuth;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
@@ -26,7 +25,7 @@ import lombok.extern.log4j.Log4j2;
 public class HtdigestAuthenticationProvider implements IGuicedAuthenticationProvider
 {
     @Getter
-    private static HtdigestAuth htdigestAuth;
+    private static io.vertx.ext.auth.htdigest.HtdigestAuth htdigestAuth;
 
     @Getter
     private static HtdigestAuthOptions htdigestAuthOptions;
@@ -48,7 +47,7 @@ public class HtdigestAuthenticationProvider implements IGuicedAuthenticationProv
         try
         {
             String path = resolvePath(htdigestAuthOptions);
-            htdigestAuth = HtdigestAuth.create(vertx, path);
+            htdigestAuth = io.vertx.ext.auth.htdigest.HtdigestAuth.create(vertx, path);
             log.info("htdigest authentication provider created: path={}, realm={}", path, htdigestAuth.realm());
             return htdigestAuth;
         }

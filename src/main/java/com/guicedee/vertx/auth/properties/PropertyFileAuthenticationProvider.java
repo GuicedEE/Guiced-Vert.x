@@ -7,7 +7,6 @@ import com.guicedee.vertx.spi.VertXPreStartup;
 import io.github.classgraph.ScanResult;
 import io.vertx.core.Vertx;
 import io.vertx.ext.auth.authentication.AuthenticationProvider;
-import io.vertx.ext.auth.properties.PropertyFileAuthentication;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
@@ -26,7 +25,7 @@ import lombok.extern.log4j.Log4j2;
 public class PropertyFileAuthenticationProvider implements IGuicedAuthenticationProvider
 {
     @Getter
-    private static PropertyFileAuthentication propertyFileAuth;
+    private static io.vertx.ext.auth.properties.PropertyFileAuthentication propertyFileAuth;
 
     @Getter
     private static PropertyFileAuthOptions propertyFileAuthOptions;
@@ -54,7 +53,7 @@ public class PropertyFileAuthenticationProvider implements IGuicedAuthentication
 
         try
         {
-            propertyFileAuth = PropertyFileAuthentication.create(vertx, path);
+            propertyFileAuth = io.vertx.ext.auth.properties.PropertyFileAuthentication.create(vertx, path);
             log.info("Property file authentication provider created: path={}", path);
             return propertyFileAuth;
         }

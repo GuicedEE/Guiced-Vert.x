@@ -5,10 +5,6 @@ import com.guicedee.client.IGuiceContext;
 import com.guicedee.vertx.auth.IGuicedAuthenticationProvider;
 import io.github.classgraph.ScanResult;
 import io.vertx.ext.auth.authentication.AuthenticationProvider;
-import io.vertx.ext.auth.otp.hotp.HotpAuth;
-import io.vertx.ext.auth.otp.hotp.HotpAuthOptions;
-import io.vertx.ext.auth.otp.totp.TotpAuth;
-import io.vertx.ext.auth.otp.totp.TotpAuthOptions;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
@@ -76,11 +72,11 @@ public class OtpAuthenticationProvider implements IGuicedAuthenticationProvider
                 case TOTP ->
                 {
                     int period = Integer.parseInt(env("PERIOD", String.valueOf(otpAuthOptions.period())));
-                    var opts = new TotpAuthOptions()
+                    var opts = new io.vertx.ext.auth.otp.totp.TotpAuthOptions()
                             .setPasswordLength(passwordLength)
                             .setAuthAttemptsLimit(authAttemptsLimit)
                             .setPeriod(period);
-                    var totp = TotpAuth.create(opts);
+                    var totp = io.vertx.ext.auth.otp.totp.TotpAuth.create(opts);
                     totp.authenticatorFetcher(authService.authenticatorFetcher());
                     totp.authenticatorUpdater(authService.authenticatorUpdater());
                     log.info("TOTP authentication provider created: passwordLength={}, period={}s, attemptsLimit={}",
@@ -91,12 +87,12 @@ public class OtpAuthenticationProvider implements IGuicedAuthenticationProvider
                 {
                     int lookAheadWindow = Integer.parseInt(env("LOOK_AHEAD_WINDOW", String.valueOf(otpAuthOptions.lookAheadWindow())));
                     long counter = Long.parseLong(env("COUNTER", String.valueOf(otpAuthOptions.counter())));
-                    var opts = new HotpAuthOptions()
+                    var opts = new io.vertx.ext.auth.otp.hotp.HotpAuthOptions()
                             .setPasswordLength(passwordLength)
                             .setAuthAttemptsLimit(authAttemptsLimit)
                             .setLookAheadWindow(lookAheadWindow)
                             .setCounter(counter);
-                    var hotp = HotpAuth.create(opts);
+                    var hotp = io.vertx.ext.auth.otp.hotp.HotpAuth.create(opts);
                     hotp.authenticatorFetcher(authService.authenticatorFetcher());
                     hotp.authenticatorUpdater(authService.authenticatorUpdater());
                     log.info("HOTP authentication provider created: passwordLength={}, lookAheadWindow={}, counter={}, attemptsLimit={}",

@@ -11,9 +11,6 @@ import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.auth.authentication.AuthenticationProvider;
-import io.vertx.ext.auth.oauth2.OAuth2Auth;
-import io.vertx.ext.auth.oauth2.OAuth2FlowType;
-import io.vertx.ext.auth.oauth2.providers.*;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
@@ -49,7 +46,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class OAuth2AuthenticationProvider implements IGuicedAuthenticationProvider
 {
     @Getter
-    private static OAuth2Auth oauth2Auth;
+    private static io.vertx.ext.auth.oauth2.OAuth2Auth oauth2Auth;
 
     @Getter
     private static OAuth2Options oauth2Options;
@@ -93,30 +90,30 @@ public class OAuth2AuthenticationProvider implements IGuicedAuthenticationProvid
 
     // ── Provider creation ───────────────────────────────
 
-    private OAuth2Auth createProvider(Vertx vertx, io.vertx.ext.auth.oauth2.OAuth2Options opts,
+    private io.vertx.ext.auth.oauth2.OAuth2Auth createProvider(Vertx vertx, io.vertx.ext.auth.oauth2.OAuth2Options opts,
                                       WellKnownProvider provider, String clientId, String clientSecret)
     {
         return switch (provider)
         {
-            case GOOGLE -> awaitFuture(GoogleAuth.discover(vertx, opts));
-            case AZURE_AD -> awaitFuture(AzureADAuth.discover(vertx, opts));
-            case KEYCLOAK -> awaitFuture(KeycloakAuth.discover(vertx, opts));
-            case SALESFORCE -> awaitFuture(SalesforceAuth.discover(vertx, opts));
-            case IBM_CLOUD -> awaitFuture(IBMCloudAuth.discover(vertx, opts));
-            case AMAZON_COGNITO, OPENID_CONNECT -> awaitFuture(OpenIDConnectAuth.discover(vertx, opts));
-            case GITHUB -> GithubAuth.create(vertx, clientId, clientSecret,
+            case GOOGLE -> awaitFuture(io.vertx.ext.auth.oauth2.providers.GoogleAuth.discover(vertx, opts));
+            case AZURE_AD -> awaitFuture(io.vertx.ext.auth.oauth2.providers.AzureADAuth.discover(vertx, opts));
+            case KEYCLOAK -> awaitFuture(io.vertx.ext.auth.oauth2.providers.KeycloakAuth.discover(vertx, opts));
+            case SALESFORCE -> awaitFuture(io.vertx.ext.auth.oauth2.providers.SalesforceAuth.discover(vertx, opts));
+            case IBM_CLOUD -> awaitFuture(io.vertx.ext.auth.oauth2.providers.IBMCloudAuth.discover(vertx, opts));
+            case AMAZON_COGNITO, OPENID_CONNECT -> awaitFuture(io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth.discover(vertx, opts));
+            case GITHUB -> io.vertx.ext.auth.oauth2.providers.GithubAuth.create(vertx, clientId, clientSecret,
                     opts.getHttpClientOptions() != null ? opts.getHttpClientOptions() : new HttpClientOptions());
-            case CUSTOM -> OAuth2Auth.create(vertx, opts);
+            case CUSTOM -> io.vertx.ext.auth.oauth2.OAuth2Auth.create(vertx, opts);
         };
     }
 
-    private OAuth2Auth awaitFuture(Future<OAuth2Auth> future)
+    private io.vertx.ext.auth.oauth2.OAuth2Auth awaitFuture(Future<io.vertx.ext.auth.oauth2.OAuth2Auth> future)
     {
         // Blocking during startup is acceptable — this runs inside IGuicePreStartup
         return future.toCompletionStage().toCompletableFuture().join();
     }
 
-    private void installMissingKeyHandler(OAuth2Auth auth)
+    private void installMissingKeyHandler(io.vertx.ext.auth.oauth2.OAuth2Auth auth)
     {
         final AtomicBoolean updating = new AtomicBoolean(false);
         auth.missingKeyHandler(keyId ->
@@ -160,7 +157,7 @@ public class OAuth2AuthenticationProvider implements IGuicedAuthenticationProvid
 
         // Flow → supported grant types
         OAuth2Flow flow = OAuth2Flow.valueOf(env("FLOW", ann.flow().name()));
-        OAuth2FlowType flowType = mapFlow(flow);
+        io.vertx.ext.auth.oauth2.OAuth2FlowType flowType = mapFlow(flow);
         opts.setSupportedGrantTypes(List.of(flowType.getGrantType()));
 
         // Endpoint overrides (only set if non-blank to preserve defaults)
@@ -236,14 +233,14 @@ public class OAuth2AuthenticationProvider implements IGuicedAuthenticationProvid
         return opts;
     }
 
-    private OAuth2FlowType mapFlow(OAuth2Flow flow)
+    private io.vertx.ext.auth.oauth2.OAuth2FlowType mapFlow(OAuth2Flow flow)
     {
         return switch (flow)
         {
-            case AUTH_CODE -> OAuth2FlowType.AUTH_CODE;
-            case PASSWORD -> OAuth2FlowType.PASSWORD;
-            case CLIENT_CREDENTIALS -> OAuth2FlowType.CLIENT;
-            case AUTH_JWT -> OAuth2FlowType.AUTH_JWT;
+            case AUTH_CODE -> io.vertx.ext.auth.oauth2.OAuth2FlowType.AUTH_CODE;
+            case PASSWORD -> io.vertx.ext.auth.oauth2.OAuth2FlowType.PASSWORD;
+            case CLIENT_CREDENTIALS -> io.vertx.ext.auth.oauth2.OAuth2FlowType.CLIENT;
+            case AUTH_JWT -> io.vertx.ext.auth.oauth2.OAuth2FlowType.AUTH_JWT;
         };
     }
 

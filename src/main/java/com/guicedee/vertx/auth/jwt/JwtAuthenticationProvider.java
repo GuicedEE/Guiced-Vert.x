@@ -11,8 +11,6 @@ import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.auth.KeyStoreOptions;
 import io.vertx.ext.auth.PubSecKeyOptions;
 import io.vertx.ext.auth.authentication.AuthenticationProvider;
-import io.vertx.ext.auth.jwt.JWTAuth;
-import io.vertx.ext.auth.jwt.JWTAuthOptions;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
@@ -50,7 +48,7 @@ import lombok.extern.log4j.Log4j2;
 public class JwtAuthenticationProvider implements IGuicedAuthenticationProvider
 {
     @Getter
-    private static JWTAuth jwtAuth;
+    private static io.vertx.ext.auth.jwt.JWTAuth jwtAuth;
 
     @Getter
     private static JwtAuthOptions jwtAuthOptions;
@@ -71,8 +69,8 @@ public class JwtAuthenticationProvider implements IGuicedAuthenticationProvider
 
         try
         {
-            JWTAuthOptions vertxOpts = buildVertxJwtAuthOptions(jwtAuthOptions, vertx);
-            jwtAuth = JWTAuth.create(vertx, vertxOpts);
+            io.vertx.ext.auth.jwt.JWTAuthOptions vertxOpts = buildVertxJwtAuthOptions(jwtAuthOptions, vertx);
+            jwtAuth = io.vertx.ext.auth.jwt.JWTAuth.create(vertx, vertxOpts);
 
             log.info("JWT authentication provider created: algorithm={}, issuer={}, audience={}",
                     resolveString("ALGORITHM", jwtAuthOptions.algorithm(), "HS256"),
@@ -89,9 +87,9 @@ public class JwtAuthenticationProvider implements IGuicedAuthenticationProvider
 
     // ── Options builder ─────────────────────────────────
 
-    private JWTAuthOptions buildVertxJwtAuthOptions(JwtAuthOptions ann, Vertx vertx)
+    private io.vertx.ext.auth.jwt.JWTAuthOptions buildVertxJwtAuthOptions(JwtAuthOptions ann, Vertx vertx)
     {
-        var opts = new JWTAuthOptions();
+        var opts = new io.vertx.ext.auth.jwt.JWTAuthOptions();
 
         // KeyStore
         String ksPath = resolveString("KEYSTORE_PATH", ann.keystorePath(), "");

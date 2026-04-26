@@ -7,7 +7,6 @@ import com.guicedee.vertx.spi.VertXPreStartup;
 import io.github.classgraph.ScanResult;
 import io.vertx.core.Vertx;
 import io.vertx.ext.auth.authentication.AuthenticationProvider;
-import io.vertx.ext.auth.htpasswd.HtpasswdAuth;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
@@ -27,7 +26,7 @@ import lombok.extern.log4j.Log4j2;
 public class HtpasswdAuthenticationProvider implements IGuicedAuthenticationProvider
 {
     @Getter
-    private static HtpasswdAuth htpasswdAuth;
+    private static io.vertx.ext.auth.htpasswd.HtpasswdAuth htpasswdAuth;
 
     @Getter
     private static HtpasswdAuthOptions htpasswdAuthOptions;
@@ -56,7 +55,7 @@ public class HtpasswdAuthenticationProvider implements IGuicedAuthenticationProv
                     .setHtpasswdFile(path)
                     .setPlainTextEnabled(plainText);
 
-            htpasswdAuth = HtpasswdAuth.create(vertx, opts);
+            htpasswdAuth = io.vertx.ext.auth.htpasswd.HtpasswdAuth.create(vertx, opts);
             log.info("htpasswd authentication provider created: path={}, plainTextEnabled={}", path, plainText);
             return htpasswdAuth;
         }

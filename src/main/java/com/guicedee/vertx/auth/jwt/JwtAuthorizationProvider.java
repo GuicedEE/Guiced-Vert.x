@@ -2,8 +2,6 @@ package com.guicedee.vertx.auth.jwt;
 
 import com.guicedee.vertx.auth.IGuicedAuthorizationProvider;
 import io.vertx.ext.auth.authorization.AuthorizationProvider;
-import io.vertx.ext.auth.jwt.authorization.JWTAuthorization;
-import io.vertx.ext.auth.jwt.authorization.MicroProfileAuthorization;
 import lombok.extern.log4j.Log4j2;
 
 /**
@@ -12,8 +10,8 @@ import lombok.extern.log4j.Log4j2;
  * Activated <strong>only</strong> when a {@link JwtAuthOptions} annotation is found
  * and {@link JwtAuthOptions#authorizationType()} is not {@code NONE}.
  * <p>
- * Creates either a {@link JWTAuthorization} (using the configured
- * {@link JwtAuthOptions#permissionsClaimKey()}) or a {@link MicroProfileAuthorization}
+ * Creates either a {@link io.vertx.ext.auth.jwt.authorization.JWTAuthorization} (using the configured
+ * {@link JwtAuthOptions#permissionsClaimKey()}) or a {@link io.vertx.ext.auth.jwt.authorization.MicroProfileAuthorization}
  * depending on the configured type.
  */
 @Log4j2
@@ -44,12 +42,12 @@ public class JwtAuthorizationProvider implements IGuicedAuthorizationProvider
             {
                 String claimKey = JwtAuthenticationProvider.env("PERMISSIONS_CLAIM_KEY", opts.permissionsClaimKey());
                 log.info("JWT authorization provider created: type=JWT, permissionsClaimKey={}", claimKey);
-                yield JWTAuthorization.create(claimKey);
+                yield io.vertx.ext.auth.jwt.authorization.JWTAuthorization.create(claimKey);
             }
             case MICROPROFILE ->
             {
                 log.info("JWT authorization provider created: type=MicroProfile (groups claim)");
-                yield MicroProfileAuthorization.create();
+                yield io.vertx.ext.auth.jwt.authorization.MicroProfileAuthorization.create();
             }
             case NONE -> null;
         };
@@ -61,4 +59,3 @@ public class JwtAuthorizationProvider implements IGuicedAuthorizationProvider
         return 90;
     }
 }
-

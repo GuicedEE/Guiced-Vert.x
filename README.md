@@ -2,7 +2,7 @@
 
 [![Build](https://github.com/GuicedEE/Guiced-Vert.x/actions/workflows/build.yml/badge.svg)](https://github.com/GuicedEE/Guiced-Vert.x/actions/workflows/build.yml)
 [![Maven Central](https://img.shields.io/maven-central/v/com.guicedee/guiced-vertx)](https://central.sonatype.com/artifact/com.guicedee/guiced-vertx)
-[![Maven Snapshot](https://img.shields.io/nexus/s/com.guicedee/guiced-vertx?server=https%3A%2F%2Foss.sonatype.org&label=Maven%20Snapshot)](https://oss.sonatype.org/content/repositories/snapshots/com/guicedee/guiced-vertx/)
+[![Snapshot](https://img.shields.io/badge/Snapshot-2.0.0-SNAPSHOT-orange)](https://github.com/GuicedEE/Packages/packages/maven/com.guicedee.vertx)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](https://www.apache.org/licenses/LICENSE-2.0)
 
 ![Java 25+](https://img.shields.io/badge/Java-25%2B-green)
@@ -354,13 +354,19 @@ Convert to PKCS8: `openssl pkcs8 -topk8 -inform PEM -in private.pem -out private
 
 ## 🔄 Startup Flow
 
-```
-IGuiceContext.instance()
- └─ VertXPreStartup        → builds Vertx, scans events, registers codecs
- └─ VertxAuthPreStartup    → scans @AuthOptions, discovers auth/authz providers,
-                              builds ChainAuth, configures PRNG and key stores
-     └─ VerticleBuilder     → deploys app verticles from @Verticle annotations
-         └─ VertxConsumersStartup → deploys one EventConsumerVerticle per address
+```mermaid
+flowchart TD
+    n1["IGuiceContext.instance()"]
+    n2["VertXPreStartup        → builds Vertx, scans events, registers codecs"]
+    n1 --> n2
+    n3["VertxAuthPreStartup    → scans @AuthOptions, discovers auth/authz providers,"]
+    n1 --> n3
+    n4["builds ChainAuth, configures PRNG and key stores"]
+    n3 --> n4
+    n5["VerticleBuilder     → deploys app verticles from @Verticle annotations"]
+    n3 --> n5
+    n6["VertxConsumersStartup → deploys one EventConsumerVerticle per address"]
+    n5 --> n6
 ```
 
 ## 🔌 SPI Hooks
@@ -375,16 +381,17 @@ IGuiceContext.instance()
 
 ## 🗺️ Module Graph
 
-```
-com.guicedee.vertx
- ├── com.guicedee.client              (SPI contracts)
- ├── com.guicedee.jsonrepresentation  (JSON codec support)
- ├── io.vertx.core                    (Vert.x runtime)
- ├── io.vertx.auth.common             (Authentication & Authorization)
- ├── io.vertx.mutiny                  (Mutiny bindings)
- ├── io.smallrye.mutiny               (reactive streams)
- ├── io.github.classgraph             (annotation scanning)
- └── com.fasterxml.jackson.databind   (JSON mapping)
+```mermaid
+flowchart LR
+    com_guicedee_vertx["com.guicedee.vertx"]
+    com_guicedee_vertx --> com_guicedee_client["com.guicedee.client<br/>SPI contracts"]
+    com_guicedee_vertx --> com_guicedee_jsonrepresentation["com.guicedee.jsonrepresentation<br/>JSON codec support"]
+    com_guicedee_vertx --> io_vertx_core["io.vertx.core<br/>Vert.x runtime"]
+    com_guicedee_vertx --> io_vertx_auth_common["io.vertx.auth.common<br/>Authentication & Authorization"]
+    com_guicedee_vertx --> io_vertx_mutiny["io.vertx.mutiny<br/>Mutiny bindings"]
+    com_guicedee_vertx --> io_smallrye_mutiny["io.smallrye.mutiny<br/>reactive streams"]
+    com_guicedee_vertx --> io_github_classgraph["io.github.classgraph<br/>annotation scanning"]
+    com_guicedee_vertx --> com_fasterxml_jackson_databind["com.fasterxml.jackson.databind<br/>JSON mapping"]
 ```
 
 ## 🤝 Contributing
