@@ -16,7 +16,7 @@ on:
       - main
       - master
 permissions:
-  contents: read
+  contents: write
   packages: write
   checks: write
   pull-requests: write
