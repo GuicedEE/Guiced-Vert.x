@@ -14,10 +14,9 @@ import io.vertx.ext.auth.authorization.AuthorizationProvider;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.ServiceLoader;
-import java.util.Set;
+import io.github.classgraph.ClassInfo;
+
+import java.util.*;
 
 /**
  * Discovers {@link AuthOptions} annotations at startup and builds the
@@ -58,10 +57,39 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
             applyAuthOptions(authOptions);
         }
 
-        // Discover authentication providers via SPI
-        @SuppressWarnings("rawtypes")
-        Set<IGuicedAuthenticationProvider> authProviderSet = IGuiceContext.instance()
-                .getLoader(IGuicedAuthenticationProvider.class, true, ServiceLoader.load(IGuicedAuthenticationProvider.class));
+
+        // Get the service set via standard GuicedEE loading (handles ServiceLoader + ClassGraph)
+        // Then dynamically add ClassGraph-discovered providers for optional auth modules
+        // that aren't declared in module-info provides (to avoid ClassNotFoundException with requires static)
+        @SuppressWarnings("unchecked")
+        Set<IGuicedAuthenticationProvider> authProviderSet = IGuiceContext.loaderToSetNoInjection(ServiceLoader.load(IGuicedAuthenticationProvider.class));
+        for (ClassInfo classInfo : scanResult.getClassesImplementing(IGuicedAuthenticationProvider.class))
+        {
+            try
+            {
+                Class<? extends IGuicedAuthenticationProvider> implClass = (Class<? extends IGuicedAuthenticationProvider>) classInfo.loadClass();
+                if (implClass.isInterface() || java.lang.reflect.Modifier.isAbstract(implClass.getModifiers()))
+                {
+                    continue;
+                }
+                // Only add if not already present from ServiceLoader
+                if (authProviderSet.stream().noneMatch(p -> p.getClass().equals(implClass)))
+                {
+                    IGuicedAuthenticationProvider instance = implClass.getDeclaredConstructor().newInstance();
+                    authProviderSet.add(instance);
+                    log.debug("Dynamically added authentication provider: {}", implClass.getName());
+                }
+            }
+            catch (NoClassDefFoundError e)
+            {
+                log.debug("Skipping authentication provider {} - optional dependency not available: {}", classInfo.getName(), e.getMessage());
+            }
+            catch (Exception e)
+            {
+                log.warn("Failed to instantiate authentication provider {}: {}", classInfo.getName(), e.getMessage());
+            }
+        }
+        IGuiceContext.getAllLoadedServices().put(IGuicedAuthenticationProvider.class, authProviderSet);
         for (IGuicedAuthenticationProvider spiProvider : authProviderSet)
         {
             AuthenticationProvider provider = spiProvider.getAuthenticationProvider();
@@ -72,10 +100,35 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
             }
         }
 
-        // Discover authorization providers via SPI
-        @SuppressWarnings("rawtypes")
-        Set<IGuicedAuthorizationProvider> authzProviderSet = IGuiceContext.instance()
-                .getLoader(IGuicedAuthorizationProvider.class, true, ServiceLoader.load(IGuicedAuthorizationProvider.class));
+        // Same pattern for authorization providers
+        @SuppressWarnings("unchecked")
+        Set<IGuicedAuthorizationProvider> authzProviderSet = IGuiceContext.loaderToSetNoInjection(ServiceLoader.load(IGuicedAuthorizationProvider.class));
+        for (ClassInfo classInfo : scanResult.getClassesImplementing(IGuicedAuthorizationProvider.class))
+        {
+            try
+            {
+                Class<? extends IGuicedAuthorizationProvider> implClass = (Class<? extends IGuicedAuthorizationProvider>) classInfo.loadClass();
+                if (implClass.isInterface() || java.lang.reflect.Modifier.isAbstract(implClass.getModifiers()))
+                {
+                    continue;
+                }
+                if (authzProviderSet.stream().noneMatch(p -> p.getClass().equals(implClass)))
+                {
+                    IGuicedAuthorizationProvider instance = implClass.getDeclaredConstructor().newInstance();
+                    authzProviderSet.add(instance);
+                    log.debug("Dynamically added authorization provider: {}", implClass.getName());
+                }
+            }
+            catch (NoClassDefFoundError e)
+            {
+                log.debug("Skipping authorization provider {} - optional dependency not available: {}", classInfo.getName(), e.getMessage());
+            }
+            catch (Exception e)
+            {
+                log.warn("Failed to instantiate authorization provider {}: {}", classInfo.getName(), e.getMessage());
+            }
+        }
+        IGuiceContext.getAllLoadedServices().put(IGuicedAuthorizationProvider.class, authzProviderSet);
         for (IGuicedAuthorizationProvider spiProvider : authzProviderSet)
         {
             AuthorizationProvider provider = spiProvider.getAuthorizationProvider();

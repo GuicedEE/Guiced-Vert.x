@@ -4,16 +4,6 @@ import com.guicedee.client.services.lifecycle.IGuicePreDestroy;
 import com.guicedee.client.services.lifecycle.IGuicePreStartup;
 import com.guicedee.vertx.*;
 import com.guicedee.vertx.auth.*;
-import com.guicedee.vertx.auth.oauth2.OAuth2AuthenticationProvider;
-import com.guicedee.vertx.auth.jwt.JwtAuthenticationProvider;
-import com.guicedee.vertx.auth.jwt.JwtAuthorizationProvider;
-import com.guicedee.vertx.auth.abac.AbacAuthorizationProvider;
-import com.guicedee.vertx.auth.otp.OtpAuthenticationProvider;
-import com.guicedee.vertx.auth.properties.PropertyFileAuthenticationProvider;
-import com.guicedee.vertx.auth.properties.PropertyFileAuthorizationProvider;
-import com.guicedee.vertx.auth.ldap.LdapAuthenticationProvider;
-import com.guicedee.vertx.auth.htpasswd.HtpasswdAuthenticationProvider;
-import com.guicedee.vertx.auth.htdigest.HtdigestAuthenticationProvider;
 import com.guicedee.vertx.implementations.VertxClassScanConfig;
 import com.guicedee.vertx.spi.*;
 
@@ -84,8 +74,6 @@ module com.guicedee.vertx {
     uses IGuicedAuthorizationProvider;
 
     provides VerticleStartup with com.guicedee.vertx.spi.VertxConsumersStartup;
-    provides IGuicedAuthenticationProvider with OAuth2AuthenticationProvider, JwtAuthenticationProvider, OtpAuthenticationProvider, PropertyFileAuthenticationProvider, LdapAuthenticationProvider, HtpasswdAuthenticationProvider, HtdigestAuthenticationProvider;
-    provides IGuicedAuthorizationProvider with JwtAuthorizationProvider, AbacAuthorizationProvider, PropertyFileAuthorizationProvider;
 
     uses com.guicedee.vertx.auth.abac.IAbacPolicyProvider;
     uses com.guicedee.vertx.auth.otp.IOtpAuthenticatorService;
