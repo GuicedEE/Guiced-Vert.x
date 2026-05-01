@@ -2,13 +2,11 @@
 
 [![Build](https://github.com/GuicedEE/Guiced-Vert.x/actions/workflows/build.yml/badge.svg)](https://github.com/GuicedEE/Guiced-Vert.x/actions/workflows/build.yml)
 [![Maven Central](https://img.shields.io/maven-central/v/com.guicedee/guiced-vertx)](https://central.sonatype.com/artifact/com.guicedee/guiced-vertx)
-[![Snapshot](https://img.shields.io/badge/Snapshot-2.0.1-SNAPSHOT-SNAPSHOT-orange)](https://github.com/GuicedEE/Packages/packages/maven/com.guicedee.vertx)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](https://www.apache.org/licenses/LICENSE-2.0)
 
 ![Java 25+](https://img.shields.io/badge/Java-25%2B-green)
 ![Guice 7](https://img.shields.io/badge/Guice-7%2B-green)
 ![Vert.X 5](https://img.shields.io/badge/Vert.x-5%2B-green)
-![Maven 4](https://img.shields.io/badge/Maven-4%2B-green)
 
 Guice-first integration layer for **Vert.x 5**. Bootstraps Vert.x from the [GuicedEE](https://github.com/GuicedEE) lifecycle, wires verticles and event-bus endpoints through dependency injection, and supplies codecs and Mutiny-friendly helpers so you can stay inside one DI container while building reactive services.
 
