@@ -20,6 +20,9 @@ module com.guicedee.vertx {
     requires static io.vertx.auth.htpasswd;
     requires static io.vertx.auth.htdigest;
 
+    requires static io.vertx.httpproxy;
+    requires static io.vertx.redis.client;
+
     requires transitive com.guicedee.client;
     requires transitive com.guicedee.jsonrepresentation;
 
@@ -40,6 +43,8 @@ module com.guicedee.vertx {
 
     exports com.guicedee.vertx.spi;
     exports com.guicedee.vertx;
+    exports com.guicedee.vertx.proxy;
+    exports com.guicedee.vertx.redis;
     exports com.guicedee.vertx.auth;
     exports com.guicedee.vertx.auth.oauth2;
     exports com.guicedee.vertx.auth.jwt;
@@ -51,6 +56,8 @@ module com.guicedee.vertx {
     exports com.guicedee.vertx.auth.htdigest;
 
     opens com.guicedee.vertx to com.google.guice;
+    opens com.guicedee.vertx.proxy to com.google.guice, com.fasterxml.jackson.databind;
+    opens com.guicedee.vertx.redis to com.google.guice, com.fasterxml.jackson.databind;
     opens com.guicedee.vertx.spi to com.google.guice;
     opens com.guicedee.vertx.auth to com.google.guice, com.fasterxml.jackson.databind;
     opens com.guicedee.vertx.auth.oauth2 to com.google.guice, com.fasterxml.jackson.databind;
@@ -62,7 +69,7 @@ module com.guicedee.vertx {
     opens com.guicedee.vertx.auth.htpasswd to com.google.guice, com.fasterxml.jackson.databind;
     opens com.guicedee.vertx.auth.htdigest to com.google.guice, com.fasterxml.jackson.databind;
 
-    provides IGuicePreStartup with VertXPreStartup, VertxAuthPreStartup;
+    provides IGuicePreStartup with VertXPreStartup, VertxAuthPreStartup, com.guicedee.vertx.redis.RedisPreStartup;
     provides IGuicePostStartup with VertxVerticlePostStartup;
     provides IGuicePreDestroy with VertXPostStartup, VertxAuthPreDestroy;
     provides IGuiceModule with VertXModule, VertxAuthModule;

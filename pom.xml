@@ -107,6 +107,18 @@
 
         <dependency>
             <groupId>io.vertx</groupId>
+            <artifactId>vertx-http-proxy</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-redis-client</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>io.vertx</groupId>
             <artifactId>vertx-codegen</artifactId>
             <scope>provided</scope>
         </dependency>

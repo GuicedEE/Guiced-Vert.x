@@ -11,6 +11,8 @@ open module guiced.vertx.test {
     requires io.vertx.auth.abac;
     requires io.vertx.auth.htpasswd;
     requires io.vertx.auth.otp;
+    requires io.vertx.httpproxy;
+    requires io.vertx.redis.client;
 
     requires io.github.classgraph;
     requires org.apache.logging.log4j;
