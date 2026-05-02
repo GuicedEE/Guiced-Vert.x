@@ -1,7 +1,7 @@
 # Guiced Vert.x
 
 [![Build](https://github.com/GuicedEE/Guiced-Vert.x/actions/workflows/build.yml/badge.svg)](https://github.com/GuicedEE/Guiced-Vert.x/actions/workflows/build.yml)
-[![Maven Central](https://img.shields.io/maven-central/v/com.guicedee/guiced-vertx)](https://central.sonatype.com/artifact/com.guicedee/guiced-vertx)
+[![Maven Central](https://img.shields.io/maven-central/v/com.guicedee/vertx)](https://github.com/GuicedEE/Guiced-Vert.x)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](https://www.apache.org/licenses/LICENSE-2.0)
 
 ![Java 25+](https://img.shields.io/badge/Java-25%2B-green)
@@ -34,7 +34,7 @@ Guice-first integration layer for **Vert.x 5**. Bootstraps Vert.x from the [Guic
 <summary>Gradle (Kotlin DSL)</summary>
 
 ```kotlin
-implementation("com.guicedee:guiced-vertx:2.0.1-SNAPSHOT")
+implementation("com.guicedee:vertx:2.0.1-SNAPSHOT")
 ```
 </details>
 
