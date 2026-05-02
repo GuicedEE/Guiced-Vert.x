@@ -4,6 +4,9 @@ import com.google.inject.Key;
 import com.google.inject.TypeLiteral;
 import com.google.inject.name.Names;
 import com.guicedee.client.IGuiceContext;
+import com.guicedee.client.scopes.CallScoper;
+import com.guicedee.client.scopes.CallScopeProperties;
+import com.guicedee.client.scopes.CallScopeSource;
 import com.guicedee.modules.services.jsonrepresentation.IJsonRepresentation;
 import com.guicedee.vertx.VertxEventDefinition;
 import com.guicedee.vertx.VertxEventOptions;
@@ -587,7 +590,19 @@ public class VertxEventRegistry {
      * rather than being deferred back to the event-loop via Uni subscription.
      */
     private static void invokeConsumerMethod(Message<?> message, Method method, Class<?> methodClass) {
+        CallScoper callScoper = null;
+        boolean started = false;
         try {
+            callScoper = IGuiceContext.get(CallScoper.class);
+            if (!callScoper.isStartedScope()) {
+                callScoper.enter();
+                started = true;
+            }
+            CallScopeProperties props = IGuiceContext.get(CallScopeProperties.class);
+            if (props.getSource() == null || props.getSource() == CallScopeSource.Unknown) {
+                props.setSource(CallScopeSource.VertXConsumer);
+            }
+
             Object instance = IGuiceContext.get(methodClass);
             Object[] params = prepareMethodParameters(method, message);
             Object invocationResult = method.invoke(instance, params);
@@ -624,6 +639,10 @@ public class VertxEventRegistry {
                 message.fail(500, String.valueOf(cause.getMessage()));
             } catch (Throwable ignored) {
             }
+        } finally {
+            if (started && callScoper != null) {
+                callScoper.exit();
+            }
         }
     }
 
@@ -633,10 +652,21 @@ public class VertxEventRegistry {
     private static void handleMethodBasedConsumer(Message<?> message, Method method, Class<?> methodClass) {
         // Execute the consumer invocation within a Uni so interceptors/scopes can participate.
         VertXPreStartup.getVertx().runOnContext(_ -> {
-            // Obtain target instance from Guice
-            Object instance = IGuiceContext.get(methodClass);
+            CallScoper callScoper = IGuiceContext.get(CallScoper.class);
+            boolean started = false;
+            if (!callScoper.isStartedScope()) {
+                callScoper.enter();
+                started = true;
+            }
+            CallScopeProperties props = IGuiceContext.get(CallScopeProperties.class);
+            if (props.getSource() == null || props.getSource() == CallScopeSource.Unknown) {
+                props.setSource(CallScopeSource.VertXConsumer);
+            }
 
-            // Prepare parameters
+                // Obtain target instance from Guice
+                Object instance = IGuiceContext.get(methodClass);
+
+                // Prepare parameters
             Object[] params = prepareMethodParameters(method, message);
             // Invoke on the current thread (event-loop or worker depending on dispatch)
             Object invocationResult;
@@ -649,8 +679,14 @@ public class VertxEventRegistry {
                     message.fail(500, String.valueOf(cause.getMessage()));
                 } catch (Throwable ignored) {
                 }
+                if (started && callScoper != null) {
+                    callScoper.exit();
+                }
                 return;
             }
+
+            final CallScoper finalScoper = callScoper;
+            final boolean finalStarted = started;
 
             // If the invoked method already returned a Uni, integrate it into the chain.
             if (invocationResult instanceof Uni<?>) {
@@ -673,8 +709,13 @@ public class VertxEventRegistry {
                             }
                         })
                         .subscribe().with(
-                                ignored -> { /* terminal — reply already sent above */ },
-                                ex -> log.error("Unexpected error in Uni subscription for {}: {}", message.address(), ex.getMessage(), ex)
+                                ignored -> {
+                                    if (finalStarted && finalScoper != null) { finalScoper.exit(); }
+                                },
+                                ex -> {
+                                    if (finalStarted && finalScoper != null) { finalScoper.exit(); }
+                                    log.error("Unexpected error in Uni subscription for {}: {}", message.address(), ex.getMessage(), ex);
+                                }
                         );
             }
             // Handle Vert.x Future result by converting to Uni
@@ -695,8 +736,13 @@ public class VertxEventRegistry {
                             }
                         })
                         .subscribe().with(
-                                ignored -> { /* terminal — reply already sent above */ },
-                                ex -> log.error("Unexpected error in Future subscription for {}: {}", message.address(), ex.getMessage(), ex)
+                                ignored -> {
+                                    if (finalStarted && finalScoper != null) { finalScoper.exit(); }
+                                },
+                                ex -> {
+                                    if (finalStarted && finalScoper != null) { finalScoper.exit(); }
+                                    log.error("Unexpected error in Future subscription for {}: {}", message.address(), ex.getMessage(), ex);
+                                }
                         );
             }
             // Handle CompletableFuture similarly
@@ -717,8 +763,13 @@ public class VertxEventRegistry {
                             }
                         })
                         .subscribe().with(
-                                ignored -> { /* terminal — reply already sent above */ },
-                                ex -> log.error("Unexpected error in CompletableFuture subscription for {}: {}", message.address(), ex.getMessage(), ex)
+                                ignored -> {
+                                    if (finalStarted && finalScoper != null) { finalScoper.exit(); }
+                                },
+                                ex -> {
+                                    if (finalStarted && finalScoper != null) { finalScoper.exit(); }
+                                    log.error("Unexpected error in CompletableFuture subscription for {}: {}", message.address(), ex.getMessage(), ex);
+                                }
                         );
             }
             // Synchronous result
@@ -728,8 +779,16 @@ public class VertxEventRegistry {
                 } catch (Throwable t) {
                     log.error("Failed to reply to message on {}: {}", message.address(), t.getMessage(), t);
                 }
+                if (finalStarted && finalScoper != null) {
+                    finalScoper.exit();
+                }
             }
             // null result = void method, no reply needed
+            else {
+                if (finalStarted && finalScoper != null) {
+                    finalScoper.exit();
+                }
+            }
         });
     }
 
