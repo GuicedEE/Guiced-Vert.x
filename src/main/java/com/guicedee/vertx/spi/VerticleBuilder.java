@@ -128,7 +128,7 @@ public class VerticleBuilder
             for (ClassInfo classInfo : foundVerticleClasses)
             {
                 var annotation = classInfo.loadClass().getDeclaredAnnotation(Verticle.class);
-                log.info("Found Verticle (class-level): {} - {}", classInfo.getPackageName(), classInfo.getSimpleName());
+                log.debug("Found Verticle (class-level): {} - {}", classInfo.getPackageName(), classInfo.getSimpleName());
                 mergedVerticles.put(classInfo.getPackageName(), annotation);
             }
 
@@ -140,7 +140,7 @@ public class VerticleBuilder
                     log.debug("Skipping package-level Verticle for {} — already claimed by class-level annotation", pkgName);
                     continue;
                 }
-                log.info("Found Verticle (package-level): {}", pkgName);
+                log.debug("Found Verticle (package-level): {}", pkgName);
                 mergedVerticles.put(pkgName, pkgEntry.getValue());
             }
 

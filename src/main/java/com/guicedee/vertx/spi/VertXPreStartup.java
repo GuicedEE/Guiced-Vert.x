@@ -45,6 +45,16 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     @Override
     public List<Future<Boolean>> onStartup() {
         if (vertx == null) {
+            // Force CallScoper class loading so its ContextLocal key is registered
+            // BEFORE the Vertx instance is created — Vert.x 5 requires all
+            // ContextLocal keys to be registered before Vertx.builder().build().
+            try {
+                Class.forName("com.guicedee.client.scopes.CallScoper");
+            } catch (ClassNotFoundException e) {
+                // CallScoper is in com.guicedee.client which is always present
+                throw new RuntimeException("Failed to pre-load CallScoper for ContextLocal registration", e);
+            }
+
             // Configure object mapper for JSON serialization
             configureObjectMapper();
 

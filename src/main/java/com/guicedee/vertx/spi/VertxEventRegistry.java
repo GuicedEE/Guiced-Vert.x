@@ -223,7 +223,7 @@ public class VertxEventRegistry {
             log.debug("scanAndRegisterEvents() already completed, skipping re-scan");
             return;
         }
-        log.info("Scanning for Vertx event consumers and publishers");
+        log.debug("Scanning for Vertx event consumers and publishers");
 
         // Scan for classes with @VertxEventDefinition annotation
         var consumerClasses = IGuiceContext.instance().getScanResult()

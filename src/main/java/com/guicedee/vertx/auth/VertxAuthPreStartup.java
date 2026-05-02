@@ -157,7 +157,7 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
         // Configure PRNG system properties
         configurePrng();
 
-        log.info("Vert.x auth startup complete: {} authentication provider(s), {} authorization provider(s)",
+        log.debug("Vert.x auth startup complete: {} authentication provider(s), {} authorization provider(s)",
                 authenticationProviders.size(), authorizationProviders.size());
 
         return List.of(Future.succeededFuture(true));
