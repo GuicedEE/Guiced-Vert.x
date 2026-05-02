@@ -23,7 +23,7 @@ import java.lang.annotation.Target;
  * All string attributes support {@code ${ENV_VAR}} placeholders and can be overridden
  * via environment variables with the {@code VERTX_AUTH_PROPERTIES_} prefix.
  *
- * <h3>Usage</h3>
+ * <h2>Usage</h2>
  * <pre>
  * &#64;PropertyFileAuthOptions(path = "auth.properties")
  * package com.example.auth;
@@ -37,6 +37,8 @@ import java.lang.annotation.Target;
 public @interface PropertyFileAuthOptions
 {
     /**
+     * The path to the properties file.
+     *
      * @return Path to the properties file. Resolved via the Vert.x filesystem
      *         (classpath or absolute path). Required.
      */

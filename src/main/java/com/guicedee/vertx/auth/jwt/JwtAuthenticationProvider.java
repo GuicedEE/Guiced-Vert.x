@@ -26,7 +26,7 @@ import lombok.extern.log4j.Log4j2;
  * provides IGuicedAuthenticationProvider with JwtAuthenticationProvider;
  * </pre>
  *
- * <h3>Environment variable overrides</h3>
+ * <h2>Environment variable overrides</h2>
  * Every annotation attribute can be overridden at deploy time with a
  * {@code VERTX_AUTH_JWT_} prefixed environment variable:
  * <ul>

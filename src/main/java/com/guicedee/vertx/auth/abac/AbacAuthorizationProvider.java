@@ -29,7 +29,7 @@ import java.util.Set;
  *   <li>SPI implementations of {@link IAbacPolicyProvider}</li>
  * </ol>
  *
- * <h3>Environment variable overrides</h3>
+ * <h2>Environment variable overrides</h2>
  * <ul>
  *   <li>{@code VERTX_AUTH_ABAC_POLICY_FILES} — comma-separated list of policy file paths (overrides annotation)</li>
  * </ul>

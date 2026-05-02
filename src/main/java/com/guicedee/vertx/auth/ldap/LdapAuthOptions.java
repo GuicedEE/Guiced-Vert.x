@@ -12,7 +12,7 @@ import java.lang.annotation.Target;
  * All string attributes support {@code ${ENV_VAR}} placeholders and can be overridden
  * via environment variables with the {@code VERTX_AUTH_LDAP_} prefix.
  *
- * <h3>Usage</h3>
+ * <h2>Usage</h2>
  * <pre>
  * &#64;LdapAuthOptions(
  *     url = "ldap://ldap.example.com:389",

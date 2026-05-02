@@ -23,7 +23,7 @@ import java.lang.annotation.Target;
  * All string attributes support {@code ${ENV_VAR}} placeholders and
  * {@code VERTX_AUTH_ABAC_} prefixed environment variable overrides.
  *
- * <h3>Policy JSON format</h3>
+ * <h2>Policy JSON format</h2>
  * <pre>
  * {
  *   "name": "Only MFA users have DELETE rights",

@@ -16,7 +16,7 @@ import lombok.extern.log4j.Log4j2;
  * Activated <strong>only</strong> when a {@link PropertyFileAuthOptions} annotation is found
  * on a class or {@code package-info.java}.
  *
- * <h3>Environment variable overrides</h3>
+ * <h2>Environment variable overrides</h2>
  * <ul>
  *   <li>{@code VERTX_AUTH_PROPERTIES_PATH} — overrides the file path</li>
  * </ul>
@@ -24,6 +24,14 @@ import lombok.extern.log4j.Log4j2;
 @Log4j2
 public class PropertyFileAuthenticationProvider implements IGuicedAuthenticationProvider
 {
+    /**
+     * Default Constructor for PropertyFileAuthenticationProvider
+     */
+    public PropertyFileAuthenticationProvider()
+    {
+        //No config required
+    }
+
     @Getter
     private static io.vertx.ext.auth.properties.PropertyFileAuthentication propertyFileAuth;
 

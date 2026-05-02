@@ -24,7 +24,7 @@ import java.lang.annotation.Target;
  * KeyStore and PubSecKey configuration from {@code @AuthOptions} is <strong>not</strong> duplicated —
  * the JWT provider reads its own annotation independently.
  *
- * <h3>Usage</h3>
+ * <h2>Usage</h2>
  * <pre>
  * &#64;JwtAuthOptions(
  *     keystorePath = "keystore.jceks",

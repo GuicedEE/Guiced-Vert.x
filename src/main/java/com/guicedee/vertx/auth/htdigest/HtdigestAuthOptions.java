@@ -16,7 +16,7 @@ import java.lang.annotation.Target;
  * Nonce generation and counters must be handled outside this provider.
  * {@code auth-int} qop is not supported.
  *
- * <h3>Usage</h3>
+ * <h2>Usage</h2>
  * <pre>
  * &#64;HtdigestAuthOptions(path = ".htdigest")
  * package com.example.auth;

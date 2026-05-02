@@ -16,7 +16,7 @@ import java.util.function.Function;
  * <strong>This SPI is required</strong> when using {@link OtpAuthOptions}. Without it,
  * the OTP provider cannot authenticate users.
  *
- * <h3>Example</h3>
+ * <h2>Example</h2>
  * <pre>
  * public class MyOtpService implements IOtpAuthenticatorService {
  *

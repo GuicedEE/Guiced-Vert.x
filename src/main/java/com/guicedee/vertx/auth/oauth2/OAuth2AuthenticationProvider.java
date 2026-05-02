@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * provides IGuicedAuthenticationProvider with OAuth2AuthenticationProvider;
  * </pre>
  *
- * <h3>Environment variable overrides</h3>
+ * <h2>Environment variable overrides</h2>
  * Every annotation attribute can be overridden at deploy time with a
  * {@code VERTX_AUTH_OAUTH2_} prefixed environment variable:
  * <ul>

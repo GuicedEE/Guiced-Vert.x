@@ -7,6 +7,8 @@ import io.vertx.core.Vertx;
 
 /**
  * SPI for initializing a Vert.x verticle instance before it starts.
+ *
+ * @param <J> The type of the VerticleStartup
  * <p>
  * Implementations can perform setup using the provided Vertx instance,
  * verticle, and assigned package context, then complete or fail the

@@ -19,6 +19,14 @@ import lombok.extern.log4j.Log4j2;
 @Log4j2
 public class PropertyFileAuthorizationProvider implements IGuicedAuthorizationProvider
 {
+    /**
+     * Default Constructor for PropertyFileAuthorizationProvider
+     */
+    public PropertyFileAuthorizationProvider()
+    {
+        //No config required
+    }
+
     @Getter
     private static io.vertx.ext.auth.properties.PropertyFileAuthorization propertyFileAuthz;
 

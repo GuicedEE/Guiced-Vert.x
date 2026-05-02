@@ -16,7 +16,7 @@ import java.lang.annotation.Target;
  * All attributes can be overridden via environment variables with the
  * {@code VERTX_AUTH_OTP_} prefix.
  *
- * <h3>Usage — TOTP (Google Authenticator compatible)</h3>
+ * <h2>Usage — TOTP (Google Authenticator compatible)</h2>
  * <pre>
  * &#64;OtpAuthOptions(
  *     type = OtpType.TOTP,
@@ -26,7 +26,7 @@ import java.lang.annotation.Target;
  * package com.example.auth;
  * </pre>
  *
- * <h3>Usage — HOTP (counter-based)</h3>
+ * <h2>Usage — HOTP (counter-based)</h2>
  * <pre>
  * &#64;OtpAuthOptions(
  *     type = OtpType.HOTP,
@@ -45,17 +45,23 @@ import java.lang.annotation.Target;
 public @interface OtpAuthOptions
 {
     /**
+     * The OTP type.
+     *
      * @return The OTP type: {@link OtpType#TOTP} (time-based) or {@link OtpType#HOTP} (counter-based).
      *         Default is TOTP.
      */
     OtpType type() default OtpType.TOTP;
 
     /**
+     * The OTP code length.
+     *
      * @return OTP code length. Valid values: 6, 7, or 8. Default 6.
      */
     int passwordLength() default 6;
 
     /**
+     * The maximum number of failed authentication attempts.
+     *
      * @return Maximum number of failed authentication attempts before lockout.
      *         0 = unlimited (no limit). Default 0.
      */
@@ -64,6 +70,8 @@ public @interface OtpAuthOptions
     // ── TOTP-specific ───────────────────────────────────
 
     /**
+     * The time period in seconds during which a TOTP code is valid.
+     *
      * @return Time period in seconds during which a TOTP code is valid.
      *         Default 30. Only used when {@link #type()} is {@link OtpType#TOTP}.
      */
@@ -72,12 +80,16 @@ public @interface OtpAuthOptions
     // ── HOTP-specific ───────────────────────────────────
 
     /**
+     * The look-ahead window size for HOTP resynchronization.
+     *
      * @return Look-ahead window size for HOTP resynchronization.
      *         0 = disabled. Only used when {@link #type()} is {@link OtpType#HOTP}.
      */
     int lookAheadWindow() default 0;
 
     /**
+     * The initial counter value for HOTP.
+     *
      * @return Initial counter value for HOTP.
      *         Only used when {@link #type()} is {@link OtpType#HOTP}. Default 0.
      */

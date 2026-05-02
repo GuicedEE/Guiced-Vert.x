@@ -17,8 +17,8 @@ import java.lang.annotation.Target;
  * <p>It is applicable at the package or type level and is retained at runtime
  * to allow for dynamic configuration adjustments.</p>
  *
- * Usage
- * <code>
+ * Usage:
+ * <pre>{@code
  *     @AddressBusResolverOptions(
  *     hostsPath = "/etc/hosts",
  *     hostsRefreshPeriod = 30000,
@@ -38,7 +38,7 @@ import java.lang.annotation.Target;
  * public class CustomAddressResolverConfig {
  *     // Application logic or configuration here
  * }
- * </code>
+ * }</pre>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.PACKAGE, ElementType.TYPE})

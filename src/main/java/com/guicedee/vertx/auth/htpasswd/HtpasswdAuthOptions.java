@@ -16,7 +16,7 @@ import java.lang.annotation.Target;
  * All string attributes support {@code ${ENV_VAR}} placeholders and can be overridden
  * via environment variables with the {@code VERTX_AUTH_HTPASSWD_} prefix.
  *
- * <h3>Usage</h3>
+ * <h2>Usage</h2>
  * <pre>
  * &#64;HtpasswdAuthOptions(path = ".htpasswd")
  * package com.example.auth;

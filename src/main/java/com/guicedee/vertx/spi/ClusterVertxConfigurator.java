@@ -20,7 +20,7 @@ import io.vertx.core.spi.cluster.ClusterManager;
  * The file should contain the fully qualified name of your implementation class.
  * 
  * Example usage:
- * <pre>
+ * <pre>{@code
  * public class MyClusterConfigurator implements ClusterVertxConfigurator {
  *     private final ClusterManager clusterManager;
  *     
@@ -48,7 +48,7 @@ import io.vertx.core.spi.cluster.ClusterManager;
  *         return builder;
  *     }
  * }
- * </pre>
+ * }</pre>
  */
 public interface ClusterVertxConfigurator extends VertxConfigurator {
 

@@ -15,13 +15,13 @@ import java.util.Set;
  * Auto-discovered OTP authentication provider for GuicedEE.
  * <p>
  * Activated <strong>only</strong> when an {@link OtpAuthOptions} annotation is found
- * on a class or {@code package-info.java}. Creates either a {@link HotpAuth} or
- * {@link TotpAuth} instance based on the configured {@link OtpType}.
+ * on a class or {@code package-info.java}. Creates either a {@link io.vertx.ext.auth.otp.hotp.HotpAuth} or
+ * {@link io.vertx.ext.auth.otp.totp.TotpAuth} instance based on the configured {@link OtpType}.
  * <p>
  * <strong>Requires</strong> an {@link IOtpAuthenticatorService} SPI implementation
  * to provide authenticator fetch/update callbacks for the storage backend.
  *
- * <h3>Environment variable overrides</h3>
+ * <h2>Environment variable overrides</h2>
  * <ul>
  *   <li>{@code VERTX_AUTH_OTP_TYPE} — {@code TOTP} or {@code HOTP}</li>
  *   <li>{@code VERTX_AUTH_OTP_PASSWORD_LENGTH} — 6, 7, or 8</li>
@@ -34,6 +34,14 @@ import java.util.Set;
 @Log4j2
 public class OtpAuthenticationProvider implements IGuicedAuthenticationProvider
 {
+    /**
+     * Default Constructor for OtpAuthenticationProvider
+     */
+    public OtpAuthenticationProvider()
+    {
+        //No config required
+    }
+
     @Getter
     private static AuthenticationProvider otpAuth;
 

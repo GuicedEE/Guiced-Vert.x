@@ -16,7 +16,7 @@ import lombok.extern.log4j.Log4j2;
  * Activated <strong>only</strong> when an {@link HtdigestAuthOptions} annotation is found.
  * Authentication only — htdigest provides no authorization.
  *
- * <h3>Environment variable overrides</h3>
+ * <h2>Environment variable overrides</h2>
  * <ul>
  *   <li>{@code VERTX_AUTH_HTDIGEST_PATH}</li>
  * </ul>

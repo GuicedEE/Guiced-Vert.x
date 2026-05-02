@@ -14,8 +14,8 @@ import java.util.concurrent.TimeUnit;
  * <p>This annotation can be applied at the package level or type level and is retained at runtime
  * to allow framework components to dynamically adapt Vert.x behaviors.</p>
  *
- * Usage
- * <code>
+ * Usage:
+ * <pre>{@code
  * @VertX(eventLoopPoolSize = 8, workerPoolSize = 30, haEnabled = true, quorumSize = 3)
  * @MetricsOptions(enabled = true)
  * @FileSystemOptions(classPathResolvingEnabled = true, fileCachingEnabled = true, fileCacheDir = "/cache")
@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
  * public class MyVertxApplication {
  *     // Application logic here
  * }
- * </code>
+ * }</pre>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.PACKAGE, ElementType.TYPE})

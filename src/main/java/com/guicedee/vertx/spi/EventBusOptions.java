@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * <code>
+ * <pre>{@code
  *     @EventBusOptions(
  *     clusterPublicHost = "192.168.1.100",
  *     clusterPublicPort = 8080,
@@ -20,7 +20,7 @@ import java.lang.annotation.Target;
  * public class ClusteredEventBusConfig {
  *     // Configuration details for working with a clustered Event Bus
  * }
- * </code>
+ * }</pre>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.PACKAGE, ElementType.TYPE})

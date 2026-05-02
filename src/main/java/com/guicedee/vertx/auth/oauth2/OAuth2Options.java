@@ -17,7 +17,7 @@ import java.lang.annotation.Target;
  * OpenID Connect Discovery is used automatically — only {@link #clientId()}
  * and {@link #clientSecret()} are required.
  *
- * <h3>Usage</h3>
+ * <h2>Usage</h2>
  * <pre>
  * // package-info.java
  * &#64;OAuth2Options(
@@ -41,16 +41,22 @@ public @interface OAuth2Options
     // ── Client Credentials ──────────────────────────────
 
     /**
+     * The OAuth2 client ID.
+     *
      * @return OAuth2 client ID. Required.
      */
     String clientId() default "";
 
     /**
+     * The OAuth2 client secret.
+     *
      * @return OAuth2 client secret. Required for confidential clients.
      */
     String clientSecret() default "";
 
     /**
+     * The tenant or realm identifier.
+     *
      * @return Tenant / realm identifier (used by Keycloak, Azure AD, IBM Cloud).
      */
     String tenant() default "";
@@ -58,12 +64,16 @@ public @interface OAuth2Options
     // ── Provider Selection ──────────────────────────────
 
     /**
+     * The well-known OAuth2/OIDC provider.
+     *
      * @return A well-known OAuth2/OIDC provider.
      *         When not {@code CUSTOM}, discovery is used automatically.
      */
     WellKnownProvider wellKnownProvider() default WellKnownProvider.CUSTOM;
 
     /**
+     * The base site URL for the provider.
+     *
      * @return Base site URL for custom providers or Keycloak/IBM Cloud
      *         (e.g. {@code https://keycloak.example.com/auth/realms/myrealm}).
      *         Ignored for well-known providers that derive the URL themselves (Google, Azure, etc.).
@@ -73,6 +83,8 @@ public @interface OAuth2Options
     // ── Flow ────────────────────────────────────────────
 
     /**
+     * The OAuth2 grant flow.
+     *
      * @return The OAuth2 grant flow to use. Default is Authorization Code.
      */
     OAuth2Flow flow() default OAuth2Flow.AUTH_CODE;
@@ -80,37 +92,51 @@ public @interface OAuth2Options
     // ── Endpoint Overrides (custom providers) ───────────
 
     /**
+     * The authorization endpoint path.
+     *
      * @return Path to the authorization endpoint (e.g. {@code /oauth/authorize}).
      *         Only needed for {@code CUSTOM} providers.
      */
     String authorizationPath() default "";
 
     /**
+     * The token endpoint path.
+     *
      * @return Path to the token endpoint (e.g. {@code /oauth/access_token}).
      */
     String tokenPath() default "";
 
     /**
+     * The token revocation endpoint path.
+     *
      * @return Path to the token revocation endpoint.
      */
     String revocationPath() default "";
 
     /**
+     * The token introspection endpoint path.
+     *
      * @return Path to the token introspection endpoint (RFC 7662).
      */
     String introspectionPath() default "";
 
     /**
+     * The JWK key set endpoint path.
+     *
      * @return Path to the JWK key set endpoint.
      */
     String jwkPath() default "";
 
     /**
+     * The userinfo endpoint path.
+     *
      * @return Path to the userinfo endpoint.
      */
     String userInfoPath() default "";
 
     /**
+     * The logout endpoint path.
+     *
      * @return Path to the end-session / logout endpoint.
      */
     String logoutPath() default "";
@@ -118,11 +144,15 @@ public @interface OAuth2Options
     // ── Scope ───────────────────────────────────────────
 
     /**
+     * The default scopes to request.
+     *
      * @return Default scopes to request, comma-separated (e.g. {@code "openid,profile,email"}).
      */
     String scopes() default "";
 
     /**
+     * The scope delimiter character.
+     *
      * @return Scope delimiter character. Default is a single space per OAuth2 spec.
      */
     String scopeDelimiter() default " ";
@@ -130,6 +160,8 @@ public @interface OAuth2Options
     // ── JWT Options ─────────────────────────────────────
 
     /**
+     * The JWT validation options.
+     *
      * @return JWT validation options (audience, issuer, leeway, etc.).
      */
     OAuth2JwtOptions jwtOptions() default @OAuth2JwtOptions;
@@ -137,6 +169,8 @@ public @interface OAuth2Options
     // ── Extra Parameters ────────────────────────────────
 
     /**
+     * The extra query parameters.
+     *
      * @return Extra query parameters as {@code key=value} pairs, comma-separated.
      *         E.g. {@code "prompt=consent,access_type=offline"}.
      */
@@ -145,6 +179,8 @@ public @interface OAuth2Options
     // ── Callback / Redirect ─────────────────────────────
 
     /**
+     * The redirect URI.
+     *
      * @return The redirect URI registered with the OAuth2 provider.
      *         Used in Authorization Code flow.
      */
@@ -153,11 +189,15 @@ public @interface OAuth2Options
     // ── Timeouts ────────────────────────────────────────
 
     /**
+     * The HTTP connect timeout.
+     *
      * @return HTTP connect timeout in milliseconds for OAuth2 HTTP requests. 0 = default.
      */
     int connectTimeout() default 0;
 
     /**
+     * The HTTP read/idle timeout.
+     *
      * @return HTTP read/idle timeout in milliseconds for OAuth2 HTTP requests. 0 = default.
      */
     int readTimeout() default 0;

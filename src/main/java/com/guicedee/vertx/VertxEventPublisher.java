@@ -16,6 +16,8 @@ import java.lang.reflect.Type;
 
 /**
  * Publisher for Vertx event bus messages
+ *
+ * @param <T> The type of message to publish
  */
 @JsonSerialize(as = Void.class)
 @EqualsAndHashCode(of = {"address"})

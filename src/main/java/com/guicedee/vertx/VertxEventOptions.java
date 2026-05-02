@@ -40,7 +40,7 @@ public @interface VertxEventOptions {
 
     /**
      * Size of the dedicated worker pool when workerPool() is set.
-     * Ignored if workerPool() is empty or size <= 0.
+     * Ignored if workerPool() is empty or size &lt;= 0.
      */
     int workerPoolSize() default 0;
 
