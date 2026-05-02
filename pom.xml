@@ -119,6 +119,24 @@
 
         <dependency>
             <groupId>io.vertx</groupId>
+            <artifactId>vertx-grpc-server</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-grpc-client</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-grpc-common</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>io.vertx</groupId>
             <artifactId>vertx-codegen</artifactId>
             <scope>provided</scope>
         </dependency>

@@ -23,6 +23,10 @@ module com.guicedee.vertx {
     requires static io.vertx.httpproxy;
     requires static io.vertx.redis.client;
 
+    requires static io.vertx.grpc.server;
+    requires static io.vertx.grpc.client;
+    requires static io.vertx.grpc.common;
+
     requires transitive com.guicedee.client;
     requires transitive com.guicedee.jsonrepresentation;
 
@@ -46,6 +50,7 @@ module com.guicedee.vertx {
     exports com.guicedee.vertx.proxy;
     exports com.guicedee.vertx.redis;
     exports com.guicedee.vertx.auth;
+    exports com.guicedee.vertx.grpc;
     exports com.guicedee.vertx.auth.oauth2;
     exports com.guicedee.vertx.auth.jwt;
     exports com.guicedee.vertx.auth.abac;
@@ -60,6 +65,7 @@ module com.guicedee.vertx {
     opens com.guicedee.vertx.redis to com.google.guice, com.fasterxml.jackson.databind;
     opens com.guicedee.vertx.spi to com.google.guice;
     opens com.guicedee.vertx.auth to com.google.guice, com.fasterxml.jackson.databind;
+    opens com.guicedee.vertx.grpc to com.google.guice, com.fasterxml.jackson.databind;
     opens com.guicedee.vertx.auth.oauth2 to com.google.guice, com.fasterxml.jackson.databind;
     opens com.guicedee.vertx.auth.jwt to com.google.guice, com.fasterxml.jackson.databind;
     opens com.guicedee.vertx.auth.abac to com.google.guice, com.fasterxml.jackson.databind;
@@ -69,7 +75,7 @@ module com.guicedee.vertx {
     opens com.guicedee.vertx.auth.htpasswd to com.google.guice, com.fasterxml.jackson.databind;
     opens com.guicedee.vertx.auth.htdigest to com.google.guice, com.fasterxml.jackson.databind;
 
-    provides IGuicePreStartup with VertXPreStartup, VertxAuthPreStartup, com.guicedee.vertx.redis.RedisPreStartup;
+    provides IGuicePreStartup with VertXPreStartup, VertxAuthPreStartup, com.guicedee.vertx.redis.RedisPreStartup, com.guicedee.vertx.grpc.GrpcPreStartup;
     provides IGuicePostStartup with VertxVerticlePostStartup;
     provides IGuicePreDestroy with VertXPostStartup, VertxAuthPreDestroy;
     provides IGuiceModule with VertXModule, VertxAuthModule;
@@ -84,4 +90,5 @@ module com.guicedee.vertx {
 
     uses com.guicedee.vertx.auth.abac.IAbacPolicyProvider;
     uses com.guicedee.vertx.auth.otp.IOtpAuthenticatorService;
+    uses com.guicedee.vertx.grpc.IGrpcServiceProvider;
 }

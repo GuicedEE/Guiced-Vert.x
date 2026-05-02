@@ -1,1 +1,3 @@
 com.guicedee.vertx.spi.VertXPreStartup
+com.guicedee.vertx.grpc.GrpcPreStartup
+
