@@ -34,7 +34,7 @@ Guice-first integration layer for **Vert.x 5**. Bootstraps Vert.x from the [Guic
 <summary>Gradle (Kotlin DSL)</summary>
 
 ```kotlin
-implementation("com.guicedee:vertx:2.0.1")
+implementation("com.guicedee:vertx:2.0.2-SNAPSHOT")
 ```
 </details>
 
