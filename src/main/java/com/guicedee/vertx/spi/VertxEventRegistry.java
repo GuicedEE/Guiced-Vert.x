@@ -710,10 +710,10 @@ public class VertxEventRegistry {
                         })
                         .subscribe().with(
                                 ignored -> {
-                                    if (finalStarted && finalScoper != null) { finalScoper.exit(); }
+                                    if (finalStarted && finalScoper != null && finalScoper.isStartedScope()) { finalScoper.exit(); }
                                 },
                                 ex -> {
-                                    if (finalStarted && finalScoper != null) { finalScoper.exit(); }
+                                    if (finalStarted && finalScoper != null && finalScoper.isStartedScope()) { finalScoper.exit(); }
                                     log.error("Unexpected error in Uni subscription for {}: {}", message.address(), ex.getMessage(), ex);
                                 }
                         );
@@ -737,10 +737,10 @@ public class VertxEventRegistry {
                         })
                         .subscribe().with(
                                 ignored -> {
-                                    if (finalStarted && finalScoper != null) { finalScoper.exit(); }
+                                    if (finalStarted && finalScoper != null && finalScoper.isStartedScope()) { finalScoper.exit(); }
                                 },
                                 ex -> {
-                                    if (finalStarted && finalScoper != null) { finalScoper.exit(); }
+                                    if (finalStarted && finalScoper != null && finalScoper.isStartedScope()) { finalScoper.exit(); }
                                     log.error("Unexpected error in Future subscription for {}: {}", message.address(), ex.getMessage(), ex);
                                 }
                         );
@@ -764,10 +764,10 @@ public class VertxEventRegistry {
                         })
                         .subscribe().with(
                                 ignored -> {
-                                    if (finalStarted && finalScoper != null) { finalScoper.exit(); }
+                                    if (finalStarted && finalScoper != null && finalScoper.isStartedScope()) { finalScoper.exit(); }
                                 },
                                 ex -> {
-                                    if (finalStarted && finalScoper != null) { finalScoper.exit(); }
+                                    if (finalStarted && finalScoper != null && finalScoper.isStartedScope()) { finalScoper.exit(); }
                                     log.error("Unexpected error in CompletableFuture subscription for {}: {}", message.address(), ex.getMessage(), ex);
                                 }
                         );
