@@ -78,7 +78,7 @@ public class VerticleBuilder
             {
                 Verticle reconstructed = reconstructVerticleAnnotation(annotationInfo);
                 packageLevelVerticles.put(packageInfo.getName(), reconstructed);
-                log.info("Found package-level Verticle: {} - workerPoolName={}", packageInfo.getName(), reconstructed.value());
+                log.debug("Found package-level Verticle: {} - workerPoolName={}", packageInfo.getName(), reconstructed.value());
             }
         }
 
