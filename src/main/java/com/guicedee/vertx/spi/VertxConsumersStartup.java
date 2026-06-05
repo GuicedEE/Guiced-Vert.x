@@ -129,7 +129,7 @@ public class VertxConsumersStartup implements VerticleStartup<VertxConsumersStar
                         .onFailure(t -> log.error("VertxConsumersStartup: some consumer verticles failed to deploy for assignedPackage='{}'",
                                     assignedPackage, t));
             } else {
-                log.debug("VertxConsumersStartup: no consumers to deploy for assignedPackage='{}'", assignedPackage);
+                log.debug("📋 VertxConsumersStartup: no consumers to deploy for assignedPackage='{}'", assignedPackage);
             }
         } catch (Throwable t) {
             log.error("Failed to deploy per-address consumer verticles for assignedPackage='{}'", assignedPackage, t);

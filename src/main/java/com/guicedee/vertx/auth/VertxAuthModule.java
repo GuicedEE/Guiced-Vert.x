@@ -39,7 +39,7 @@ public class VertxAuthModule extends AbstractModule implements IGuiceModule<Vert
             && VertxAuthPreStartup.getAuthorizationProviders().isEmpty()
             && VertxAuthPreStartup.getChainAuth() == null)
         {
-            log.debug("No auth providers configured — skipping Vert.x Auth Guice bindings");
+            log.debug("🔐 No auth providers configured — skipping Vert.x Auth Guice bindings");
             return;
         }
 

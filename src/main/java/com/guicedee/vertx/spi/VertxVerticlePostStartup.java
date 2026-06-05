@@ -22,7 +22,7 @@ public class VertxVerticlePostStartup implements IGuicePostStartup<VertxVerticle
     @Override
     public List<Uni<Boolean>> postLoad()
     {
-        log.info("🚀 Deploying Vert.x verticles (post-startup)");
+        log.debug("🚀 Deploying Vert.x verticles (post-startup)");
 
         // Deploy verticles - each verticle will register its assigned consumers via VertxConsumersStartup
         new VerticleBuilder().findVerticles();

@@ -284,13 +284,13 @@ public class VerticleBuilder
                 if (key.isEmpty())
                 {
                     opts = new DeploymentOptions();
-                    log.info("Deploying Default Verticle for non-annotated packages");
+                    log.info("🚀 Deploying Default Verticle for non-annotated packages");
                 }
                 else
                 {
                     Verticle ann = verticleAnnotations.get(key);
                     opts = ann != null ? toDeploymentOptions(ann) : new DeploymentOptions();
-                    log.info("Deploying Verticle: {} - workerPool={}", key,
+                    log.info("🚀 Deploying Verticle: {} - workerPool={}", key,
                             ann != null ? ann.value() : "default");
                 }
                 var verticalFuture = VertXPreStartup.getVertx().deployVerticle(value, opts);
