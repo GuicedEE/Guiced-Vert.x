@@ -125,7 +125,6 @@ public class AbacAuthorizationProvider implements IGuicedAuthorizationProvider
             }
 
             // 3. SPI policy providers
-            @SuppressWarnings("rawtypes")
             Set<IAbacPolicyProvider> spiProviders = IGuiceContext.instance()
                     .getLoader(IAbacPolicyProvider.class, true, ServiceLoader.load(IAbacPolicyProvider.class));
             for (IAbacPolicyProvider spiProvider : spiProviders)

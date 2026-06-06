@@ -61,7 +61,6 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
         // Get the service set via standard GuicedEE loading (handles ServiceLoader + ClassGraph)
         // Then dynamically add ClassGraph-discovered providers for optional auth modules
         // that aren't declared in module-info provides (to avoid ClassNotFoundException with requires static)
-        @SuppressWarnings("unchecked")
         Set<IGuicedAuthenticationProvider> authProviderSet = IGuiceContext.loaderToSetNoInjection(ServiceLoader.load(IGuicedAuthenticationProvider.class));
         for (ClassInfo classInfo : scanResult.getClassesImplementing(IGuicedAuthenticationProvider.class))
         {
@@ -101,7 +100,6 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
         }
 
         // Same pattern for authorization providers
-        @SuppressWarnings("unchecked")
         Set<IGuicedAuthorizationProvider> authzProviderSet = IGuiceContext.loaderToSetNoInjection(ServiceLoader.load(IGuicedAuthorizationProvider.class));
         for (ClassInfo classInfo : scanResult.getClassesImplementing(IGuicedAuthorizationProvider.class))
         {

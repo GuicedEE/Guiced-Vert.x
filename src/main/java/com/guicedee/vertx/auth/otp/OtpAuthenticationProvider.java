@@ -122,7 +122,6 @@ public class OtpAuthenticationProvider implements IGuicedAuthenticationProvider
 
     private IOtpAuthenticatorService discoverAuthenticatorService()
     {
-        @SuppressWarnings("rawtypes")
         Set<IOtpAuthenticatorService> services = IGuiceContext.instance()
                 .getLoader(IOtpAuthenticatorService.class, true, ServiceLoader.load(IOtpAuthenticatorService.class));
         if (services.isEmpty())

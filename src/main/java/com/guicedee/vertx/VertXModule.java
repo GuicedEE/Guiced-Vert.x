@@ -110,7 +110,6 @@ public class VertXModule extends AbstractModule implements IGuiceModule<VertXMod
                 var gKey = VertxEventRegistry.getEventPublisherKeys().get(address);
 
                 // Create a provider for the publisher with the correct generic type
-                @SuppressWarnings("unchecked")
                 Provider<VertxEventPublisher> publisherProvider = () -> {
                     Vertx vertx = VertXPreStartup.getVertx();
                     // Extract the type from the key

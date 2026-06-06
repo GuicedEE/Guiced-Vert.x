@@ -211,7 +211,7 @@ public class VerticleBuilder
 
                                     // Must match this verticle's package or its capabilities
                                     boolean matchesThisVerticle = packageNames.stream()
-                                            .anyMatch(pkg -> startupPkg.startsWith(pkg));
+                                            .anyMatch(startupPkg::startsWith);
                                     if (!matchesThisVerticle)
                                     {
                                         return false;
