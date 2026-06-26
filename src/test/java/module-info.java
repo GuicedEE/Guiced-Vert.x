@@ -25,6 +25,8 @@ open module guiced.vertx.test {
     exports com.guicedee.vertx.test;
     exports com.guicedee.vertx.spi.test;
 
+    uses io.vertx.core.spi.JsonFactory;
+
     provides com.guicedee.client.services.IGuiceProvider
             with com.guicedee.vertx.test.TestGuiceProvider;
 }

@@ -1,6 +1,6 @@
 package com.guicedee.vertx.spi;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import tools.jackson.core.JacksonException;
 import com.guicedee.modules.services.jsonrepresentation.IJsonRepresentation;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.MessageCodec;
@@ -35,7 +35,7 @@ public class DynamicCodec<T> implements MessageCodec<T, T> {
         try {
             buffer.appendString(IJsonRepresentation.getObjectMapper()
                     .writeValueAsString(object));
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.error("Error encoding object to wire", e);
             throw new RuntimeException(e);
         }
@@ -48,7 +48,7 @@ public class DynamicCodec<T> implements MessageCodec<T, T> {
             return IJsonRepresentation.getObjectMapper()
                     .readerFor(type)
                     .readValue(message);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.error("Error decoding object from wire", e);
             throw new RuntimeException(e);
         }

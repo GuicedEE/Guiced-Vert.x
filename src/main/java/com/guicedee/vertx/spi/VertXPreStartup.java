@@ -3,13 +3,11 @@ package com.guicedee.vertx.spi;
 import com.guicedee.client.IGuiceContext;
 import com.guicedee.client.services.lifecycle.IGuicePreDestroy;
 import com.guicedee.client.services.lifecycle.IGuicePreStartup;
-import com.guicedee.modules.services.jsonrepresentation.IJsonRepresentation;
 import io.vertx.core.Future;
 import io.vertx.core.Verticle;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxBuilder;
 import io.vertx.core.VertxOptions;
-import io.vertx.core.json.jackson.DatabindCodec;
 
 import lombok.Getter;
 
@@ -55,8 +53,14 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
                 throw new RuntimeException("Failed to pre-load CallScoper for ContextLocal registration", e);
             }
 
-            // Configure object mapper for JSON serialization
-            configureObjectMapper();
+            // Vert.x JSON is explicitly configured to use the GuicedEE Jackson 3
+            // (tools.jackson) mapper via the io.vertx.core.spi.JsonFactory SPI
+            // (com.guicedee.vertx.spi.json.GuicedVertxJsonFactory, registered in
+            // module-info / META-INF/services with the lowest order so it is preferred).
+            // This avoids Vert.x's multi-release JacksonFactory falling back to the
+            // Jackson 2 core-only codec — which throws "Mapping <type> is not available
+            // without Jackson Databind on the classpath" — when Jackson 2 core is present
+            // without Jackson 2 databind.
 
             // Initialize the Vertx builder
             VertxBuilder builder = Vertx.builder();
@@ -95,9 +99,6 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
         return List.of(Future.succeededFuture(true));
     }
 
-    private void configureObjectMapper() {
-        IJsonRepresentation.configureObjectMapper(DatabindCodec.mapper());
-    }
 
     private void configureVertxOptions(VertxBuilder builder) {
         // Process the @VertX annotation

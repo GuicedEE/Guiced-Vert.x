@@ -32,9 +32,9 @@ module com.guicedee.vertx {
 
     requires transitive org.apache.logging.log4j;
 
-    requires transitive com.fasterxml.jackson.databind;
+    requires transitive tools.jackson.databind;
     requires transitive com.fasterxml.jackson.annotation;
-    requires transitive com.fasterxml.jackson.core;
+    requires transitive tools.jackson.core;
 
     requires transitive io.smallrye.mutiny;
     requires transitive io.vertx.mutiny;
@@ -46,6 +46,7 @@ module com.guicedee.vertx {
     requires static lombok;
 
     exports com.guicedee.vertx.spi;
+    exports com.guicedee.vertx.spi.json;
     exports com.guicedee.vertx;
     exports com.guicedee.vertx.proxy;
     exports com.guicedee.vertx.redis;
@@ -61,25 +62,30 @@ module com.guicedee.vertx {
     exports com.guicedee.vertx.auth.htdigest;
 
     opens com.guicedee.vertx to com.google.guice;
-    opens com.guicedee.vertx.proxy to com.google.guice, com.fasterxml.jackson.databind;
-    opens com.guicedee.vertx.redis to com.google.guice, com.fasterxml.jackson.databind;
+    opens com.guicedee.vertx.proxy to com.google.guice, tools.jackson.databind;
+    opens com.guicedee.vertx.redis to com.google.guice, tools.jackson.databind;
     opens com.guicedee.vertx.spi to com.google.guice;
-    opens com.guicedee.vertx.auth to com.google.guice, com.fasterxml.jackson.databind;
-    opens com.guicedee.vertx.grpc to com.google.guice, com.fasterxml.jackson.databind;
-    opens com.guicedee.vertx.auth.oauth2 to com.google.guice, com.fasterxml.jackson.databind;
-    opens com.guicedee.vertx.auth.jwt to com.google.guice, com.fasterxml.jackson.databind;
-    opens com.guicedee.vertx.auth.abac to com.google.guice, com.fasterxml.jackson.databind;
-    opens com.guicedee.vertx.auth.otp to com.google.guice, com.fasterxml.jackson.databind;
-    opens com.guicedee.vertx.auth.properties to com.google.guice, com.fasterxml.jackson.databind;
-    opens com.guicedee.vertx.auth.ldap to com.google.guice, com.fasterxml.jackson.databind;
-    opens com.guicedee.vertx.auth.htpasswd to com.google.guice, com.fasterxml.jackson.databind;
-    opens com.guicedee.vertx.auth.htdigest to com.google.guice, com.fasterxml.jackson.databind;
+    opens com.guicedee.vertx.auth to com.google.guice, tools.jackson.databind;
+    opens com.guicedee.vertx.grpc to com.google.guice, tools.jackson.databind;
+    opens com.guicedee.vertx.auth.oauth2 to com.google.guice, tools.jackson.databind;
+    opens com.guicedee.vertx.auth.jwt to com.google.guice, tools.jackson.databind;
+    opens com.guicedee.vertx.auth.abac to com.google.guice, tools.jackson.databind;
+    opens com.guicedee.vertx.auth.otp to com.google.guice, tools.jackson.databind;
+    opens com.guicedee.vertx.auth.properties to com.google.guice, tools.jackson.databind;
+    opens com.guicedee.vertx.auth.ldap to com.google.guice, tools.jackson.databind;
+    opens com.guicedee.vertx.auth.htpasswd to com.google.guice, tools.jackson.databind;
+    opens com.guicedee.vertx.auth.htdigest to com.google.guice, tools.jackson.databind;
 
     provides IGuicePreStartup with VertXPreStartup, VertxAuthPreStartup, com.guicedee.vertx.redis.RedisPreStartup, com.guicedee.vertx.grpc.GrpcPreStartup;
     provides IGuicePostStartup with VertxVerticlePostStartup;
     provides IGuicePreDestroy with VertXPostStartup, VertxAuthPreDestroy;
     provides IGuiceModule with VertXModule, VertxAuthModule;
     provides com.guicedee.client.services.lifecycle.IGuiceConfigurator with VertxClassScanConfig;
+
+    // Route all Vert.x JSON (Json.encode/decode, JsonObject.mapTo/mapFrom, event-bus
+    // payloads, etc.) through the GuicedEE Jackson 3 mapper instead of Vert.x's default
+    // Jackson 2 fallback codec.
+    provides io.vertx.core.spi.JsonFactory with com.guicedee.vertx.spi.json.GuicedVertxJsonFactory;
 
     uses com.guicedee.vertx.spi.VertxConfigurator;
     uses VerticleStartup;

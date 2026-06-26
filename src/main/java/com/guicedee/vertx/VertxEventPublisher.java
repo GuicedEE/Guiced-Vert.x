@@ -1,6 +1,6 @@
 package com.guicedee.vertx;
 
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import tools.jackson.databind.annotation.JsonSerialize;
 import com.guicedee.modules.services.jsonrepresentation.IJsonRepresentation;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;

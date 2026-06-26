@@ -46,11 +46,44 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
     @Getter
     private static final List<PubSecKeyOptions> pubSecKeyOptionsList = new ArrayList<>();
 
+    /**
+     * Fully-qualified names of the {@code @*Options} auth annotations. Referenced by name (not
+     * {@code Class}) so that optional auth modules absent from the module path don't trigger
+     * {@link ClassNotFoundException} during the cheap "is any auth configured?" check.
+     */
+    private static final List<String> AUTH_OPTION_ANNOTATIONS = List.of(
+            "com.guicedee.vertx.auth.AuthOptions",
+            "com.guicedee.vertx.auth.oauth2.OAuth2Options",
+            "com.guicedee.vertx.auth.jwt.JwtAuthOptions",
+            "com.guicedee.vertx.auth.abac.AbacOptions",
+            "com.guicedee.vertx.auth.otp.OtpAuthOptions",
+            "com.guicedee.vertx.auth.properties.PropertyFileAuthOptions",
+            "com.guicedee.vertx.auth.ldap.LdapAuthOptions",
+            "com.guicedee.vertx.auth.htpasswd.HtpasswdAuthOptions",
+            "com.guicedee.vertx.auth.htdigest.HtdigestAuthOptions");
+
     @Override
     public List<Future<Boolean>> onStartup()
     {
         ScanResult scanResult = IGuiceContext.instance().getScanResult();
         discoverAuthOptions(scanResult);
+
+        // Load any explicitly-registered (ServiceLoader / module-info provides) custom providers up
+        // front — these are an opt-in signal that auth is wanted, independent of the annotations.
+        Set<IGuicedAuthenticationProvider> authProviderSet = IGuiceContext.loaderToSetNoInjection(ServiceLoader.load(IGuicedAuthenticationProvider.class));
+        Set<IGuicedAuthorizationProvider> authzProviderSet = IGuiceContext.loaderToSetNoInjection(ServiceLoader.load(IGuicedAuthorizationProvider.class));
+
+        // Short-circuit: if no auth annotation is present and no custom provider is registered, skip
+        // all provider discovery, instantiation and per-provider annotation scans entirely. The auth
+        // SPIs are opt-in — there is nothing to wire when nothing requests authentication.
+        if (authOptions == null
+            && authProviderSet.isEmpty()
+            && authzProviderSet.isEmpty()
+            && !hasAnyAuthAnnotation(scanResult))
+        {
+            log.debug("🔐 No @AuthOptions/auth annotations and no auth providers registered — skipping Vert.x auth discovery");
+            return List.of(Future.succeededFuture(true));
+        }
 
         if (authOptions != null)
         {
@@ -61,7 +94,6 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
         // Get the service set via standard GuicedEE loading (handles ServiceLoader + ClassGraph)
         // Then dynamically add ClassGraph-discovered providers for optional auth modules
         // that aren't declared in module-info provides (to avoid ClassNotFoundException with requires static)
-        Set<IGuicedAuthenticationProvider> authProviderSet = IGuiceContext.loaderToSetNoInjection(ServiceLoader.load(IGuicedAuthenticationProvider.class));
         for (ClassInfo classInfo : scanResult.getClassesImplementing(IGuicedAuthenticationProvider.class))
         {
             try
@@ -100,7 +132,6 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
         }
 
         // Same pattern for authorization providers
-        Set<IGuicedAuthorizationProvider> authzProviderSet = IGuiceContext.loaderToSetNoInjection(ServiceLoader.load(IGuicedAuthorizationProvider.class));
         for (ClassInfo classInfo : scanResult.getClassesImplementing(IGuicedAuthorizationProvider.class))
         {
             try
@@ -159,6 +190,24 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
                 authenticationProviders.size(), authorizationProviders.size());
 
         return List.of(Future.succeededFuture(true));
+    }
+
+    /**
+     * Returns {@code true} when any auth {@code @*Options} annotation is present on a class or
+     * {@code package-info.java}. Used as a cheap gate to skip provider discovery when auth is
+     * not configured. Annotations are looked up by FQN so optional modules absent from the
+     * module path are simply not found (rather than failing the scan).
+     */
+    private boolean hasAnyAuthAnnotation(ScanResult scanResult)
+    {
+        for (String annotationName : AUTH_OPTION_ANNOTATIONS)
+        {
+            if (!scanResult.getClassesWithAnnotation(annotationName).isEmpty())
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void discoverAuthOptions(ScanResult scanResult)
