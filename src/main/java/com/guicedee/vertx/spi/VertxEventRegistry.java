@@ -858,6 +858,26 @@ public class VertxEventRegistry {
                         log.error("Error converting JsonObject to " + paramType.getName(), e);
                         params[i] = body;
                     }
+                } else if (body instanceof JsonArray &&
+                        !isDefaultVertxType(paramType)) {
+                    try {
+                        // Convert JsonArray to the expected (generic) parameter type using Jackson.
+                        JsonArray jsonArray = (JsonArray) body;
+
+                        // Prefer the stored reference type (e.g. List<Dto>) so element types are
+                        // preserved; otherwise fall back to the parameter's generic signature.
+                        Type referenceType = eventConsumerReferenceTypes.get(address);
+                        Type targetType = referenceType != null ? referenceType : param.getParameterizedType();
+                        log.debug("Using type {} to deserialize JsonArray at address: {}",
+                                targetType.getTypeName(), address);
+                        params[i] = IJsonRepresentation.getObjectMapper()
+                                .readValue(jsonArray.encode(),
+                                        IJsonRepresentation.getObjectMapper().getTypeFactory().constructType(targetType));
+                        log.debug("Converted JsonArray to {}: {}", targetType.getTypeName(), params[i]);
+                    } catch (Exception e) {
+                        log.error("Error converting JsonArray to " + paramType.getName(), e);
+                        params[i] = body;
+                    }
                 } else {
                     // Pass the message body directly
                     params[i] = body;

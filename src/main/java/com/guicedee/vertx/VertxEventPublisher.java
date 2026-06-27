@@ -65,6 +65,18 @@ public class VertxEventPublisher<T> {
             return null;
         }
 
+        // Prefer the declared generic reference type (e.g. List<Dto>, Map<String, Dto>) so the
+        // codec name matches what CodecRegistry registered for this publisher. Deriving from the
+        // runtime class instead would yield "array-list"/"linked-hash-map", which never match the
+        // "list-dto"/"map-..." codecs registered against the declared type, and would also erase
+        // the element types on decode.
+        if (referenceType != null && referenceType != Object.class) {
+            String declaredName = com.guicedee.vertx.spi.CodecRegistry.getCodecName(referenceType);
+            if (declaredName != null) {
+                return declaredName;
+            }
+        }
+
         Class<?> messageClass = message.getClass();
         return com.guicedee.vertx.spi.CodecRegistry.getCodecName(messageClass);
     }

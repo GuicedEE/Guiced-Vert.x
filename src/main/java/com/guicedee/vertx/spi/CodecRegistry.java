@@ -123,7 +123,71 @@ public class CodecRegistry {
         // Convert to kebab case
         return toKebabCase(className);
     }
-    
+
+    /**
+     * Gets the codec name for a given (possibly generic) type.
+     * <p>
+     * For a raw {@link Class} this matches {@link #getCodecName(Class)}. For a
+     * {@link java.lang.reflect.ParameterizedType} (e.g. {@code List<Dto>}) the type
+     * arguments are folded into the name (e.g. {@code "list-dto"}) so that:
+     * <ul>
+     *   <li>the publish side and the registration side derive the <em>same</em> stable
+     *       name from the declared type (rather than the runtime class, where
+     *       {@code ArrayList} would never match a {@code List} registration), and</li>
+     *   <li>different element types map to different codecs, avoiding a single global
+     *       {@code "list"} codec being shared across incompatible payloads.</li>
+     * </ul>
+     *
+     * @param type The type (raw or parameterized)
+     * @return The codec name, or {@code null} for standard Vert.x types / unresolvable types
+     */
+    public static String getCodecName(Type type) {
+        if (type == null) {
+            return null;
+        }
+        if (type instanceof Class<?> clazz) {
+            return getCodecName(clazz);
+        }
+        if (type instanceof java.lang.reflect.ParameterizedType pt) {
+            if (!(pt.getRawType() instanceof Class<?> raw) || isStandardVertxType(raw)) {
+                return null;
+            }
+            StringBuilder sb = new StringBuilder(toKebabCase(raw.getSimpleName()));
+            for (Type arg : pt.getActualTypeArguments()) {
+                String argName = typeArgName(arg);
+                if (argName != null && !argName.isEmpty()) {
+                    sb.append('-').append(argName);
+                }
+            }
+            return sb.toString();
+        }
+        return null;
+    }
+
+    /**
+     * Derives the kebab-case name fragment for a single type argument, recursing into
+     * nested parameterized types and resolving wildcard upper bounds.
+     */
+    private static String typeArgName(Type arg) {
+        if (arg instanceof Class<?> c) {
+            return toKebabCase(c.getSimpleName());
+        }
+        if (arg instanceof java.lang.reflect.ParameterizedType) {
+            return getCodecName(arg);
+        }
+        if (arg instanceof java.lang.reflect.WildcardType w) {
+            Type[] upper = w.getUpperBounds();
+            if (upper.length > 0) {
+                return typeArgName(upper[0]);
+            }
+        }
+        if (arg instanceof java.lang.reflect.GenericArrayType ga) {
+            String component = typeArgName(ga.getGenericComponentType());
+            return component == null ? null : component + "-array";
+        }
+        return null;
+    }
+
     /**
      * Creates and registers a codec for the given type if it doesn't already exist
      *
@@ -153,27 +217,31 @@ public class CodecRegistry {
             return null;
         }
         
-        // Get the codec name
-        String codecName = getCodecName(rawClass);
+        // Get the codec name from the full (possibly parameterized) type so generic
+        // payloads keep their element types and produce a stable, collision-free name.
+        String codecName = getCodecName(type);
+        if (codecName == null) {
+            codecName = getCodecName(rawClass);
+        }
         if (codecName == null) {
             return null;
         }
         
         // Check if the codec is already registered
         if (registeredCodecs.containsKey(codecName)) {
-            log.trace("Codec already registered for type {} with name {}", rawClass.getName(), codecName);
+            log.trace("Codec already registered for type {} with name {}", type.getTypeName(), codecName);
             return codecName;
         }
         
-        // Create and register the codec
+        // Create and register the codec carrying the full generic type
         try {
-            MessageCodec<T, T> codec = new DynamicCodec<>(rawClass, codecName);
+            MessageCodec<T, T> codec = new DynamicCodec<>(type, codecName);
             vertx.eventBus().registerCodec(codec);
             registeredCodecs.put(codecName, true);
-            log.debug("Registered codec for type {} with name {}", rawClass.getName(), codecName);
+            log.debug("Registered codec for type {} with name {}", type.getTypeName(), codecName);
             return codecName;
         } catch (Exception e) {
-            log.error("Error registering codec for type {} with name {}", rawClass.getName(), codecName, e);
+            log.error("Error registering codec for type {} with name {}", type.getTypeName(), codecName, e);
             return null;
         }
     }
