@@ -45,7 +45,7 @@ public class DynamicCodec<T> implements MessageCodec<T, T> {
     public DynamicCodec(Type type, String codecName) {
         this.type = type;
         this.codecName = codecName;
-        log.debug("Created dynamic codec for type {} with name {}", type.getTypeName(), codecName);
+        log.trace("Created dynamic codec for type {} with name {}", type.getTypeName(), codecName);
     }
 
     /**

@@ -105,7 +105,7 @@ public class VertxConsumersStartup implements VerticleStartup<VertxConsumersStar
                                 if (va.workerPoolSize() > 0) {
                                     options.setWorkerPoolSize(va.workerPoolSize());
                                 }
-                                log.debug("Event consumer for address {} inheriting worker pool '{}' from @Verticle", address, va.value());
+                                log.trace("Event consumer for address {} inheriting worker pool '{}' from @Verticle", address, va.value());
                             }
                         }
                     }
@@ -114,7 +114,7 @@ public class VertxConsumersStartup implements VerticleStartup<VertxConsumersStar
                     var consumerVerticle = new EventConsumerVerticle(address, def, targetMethod, targetClass);
                     var deployFuture = vertx.deployVerticle(consumerVerticle, options)
                             .onFailure(t -> log.error("Failed to deploy consumer verticle for {}: {}", address, t.getMessage(), t))
-                            .onSuccess(id -> log.debug("Deployed consumer verticle [{}] for address {} (instances={})", id, address, instances));
+                            .onSuccess(id -> log.trace("Deployed consumer verticle [{}] for address {} (instances={})", id, address, instances));
                     deploymentFutures.add(deployFuture);
                 } catch (Throwable t) {
                     log.error("Error while deploying consumer verticle for {}", address, t);
@@ -129,7 +129,7 @@ public class VertxConsumersStartup implements VerticleStartup<VertxConsumersStar
                         .onFailure(t -> log.error("VertxConsumersStartup: some consumer verticles failed to deploy for assignedPackage='{}'",
                                     assignedPackage, t));
             } else {
-                log.debug("📋 VertxConsumersStartup: no consumers to deploy for assignedPackage='{}'", assignedPackage);
+                log.trace("📋 VertxConsumersStartup: no consumers to deploy for assignedPackage='{}'", assignedPackage);
             }
         } catch (Throwable t) {
             log.error("Failed to deploy per-address consumer verticles for assignedPackage='{}'", assignedPackage, t);

@@ -238,7 +238,7 @@ public class CodecRegistry {
             MessageCodec<T, T> codec = new DynamicCodec<>(type, codecName);
             vertx.eventBus().registerCodec(codec);
             registeredCodecs.put(codecName, true);
-            log.debug("Registered codec for type {} with name {}", type.getTypeName(), codecName);
+            log.trace("Registered codec for type {} with name {}", type.getTypeName(), codecName);
             return codecName;
         } catch (Exception e) {
             log.error("Error registering codec for type {} with name {}", type.getTypeName(), codecName, e);

@@ -223,7 +223,7 @@ public class VertxEventRegistry {
             log.debug("scanAndRegisterEvents() already completed, skipping re-scan");
             return;
         }
-        log.debug("Scanning for Vertx event consumers and publishers");
+        log.trace("Scanning for Vertx event consumers and publishers");
 
         // Scan for classes with @VertxEventDefinition annotation
         var consumerClasses = IGuiceContext.instance().getScanResult()
@@ -232,7 +232,7 @@ public class VertxEventRegistry {
                 .filter(classInfo -> !classInfo.isInterfaceOrAnnotation() && !classInfo.isAbstract())
                 .toList();
 
-        log.debug("📋 Found {} consumer classes with @VertxEventDefinition", consumerClasses.size());
+        log.trace("📋 Found {} consumer classes with @VertxEventDefinition", consumerClasses.size());
 
         for (var consumerClassInfo : consumerClasses) {
             try {
@@ -257,7 +257,7 @@ public class VertxEventRegistry {
                                 Type[] typeArgs = parameterizedType.getActualTypeArguments();
                                 if (typeArgs.length > 0) {
                                     Type consumerType = typeArgs[0];
-                                    log.debug("Found reference type {} for consumer at address: {}", consumerType.getTypeName(), address);
+                                    log.trace("Found reference type {} for consumer at address: {}", consumerType.getTypeName(), address);
                                     eventConsumerReferenceTypes.put(address, consumerType);
                                 }
                             }
@@ -265,7 +265,7 @@ public class VertxEventRegistry {
                     }
                 } catch (NoSuchMethodException e) {
                     // No consume method found, that's okay
-                    log.debug("No consume method found for class {}", consumerClass.getName());
+                    log.trace("No consume method found for class {}", consumerClass.getName());
                 }
             } catch (Exception e) {
                 log.error("Error registering Vertx event consumer", e);
@@ -287,7 +287,7 @@ public class VertxEventRegistry {
                     if (eventDefinition != null) {
                         String address = eventDefinition.value();
 
-                        log.debug("Registering Vertx event consumer method for address: {}", address);
+                        log.trace("Registering Vertx event consumer method for address: {}", address);
                         eventConsumerDefinitions.put(address, eventDefinition);
                         eventConsumerMethods.put(address, method);
                         eventConsumerMethodClasses.put(address, clazz);
@@ -303,7 +303,7 @@ public class VertxEventRegistry {
                             // Get the parameter type
                             Type paramType = param.getParameterizedType();
                             if (paramType != null) {
-                                log.debug("Found reference type {} for method consumer at address: {}", paramType.getTypeName(), address);
+                                log.trace("Found reference type {} for method consumer at address: {}", paramType.getTypeName(), address);
                                 eventConsumerReferenceTypes.put(address, paramType);
                                 break; // Use the first non-Message parameter
                             }
@@ -348,7 +348,7 @@ public class VertxEventRegistry {
 
                         if (address != null) {
                             if (!eventPublisherKeys.containsKey(address)) {
-                                log.debug("Registering Vertx event publisher for address: {}", address);
+                                log.trace("Registering Vertx event publisher for address: {}", address);
                                 eventPublisherDefinitions.put(address, eventDefinition);
                                 // Extract the generic type parameter
                                 Type genericType = field.getGenericType();
@@ -376,7 +376,7 @@ public class VertxEventRegistry {
     public static void registerEventConsumersFiltered(String assignedPackage, java.util.List<String> excludedPrefixes) {
         Vertx vertx = VertXPreStartup.getVertx();
 
-        log.debug("registerEventConsumersFiltered called for package='{}', excludedPrefixes={}", assignedPackage, excludedPrefixes);
+        log.trace("registerEventConsumersFiltered called for package='{}', excludedPrefixes={}", assignedPackage, excludedPrefixes);
 
         java.util.function.Predicate<String> includeByPackage;
         if (assignedPackage != null && !assignedPackage.isEmpty()) {
@@ -396,11 +396,11 @@ public class VertxEventRegistry {
 
                 // Skip if already registered
                 if (registeredAddresses.contains(address)) {
-                    log.debug("[{}] Consumer for address {} already registered, skipping", assignedPackage, address);
+                    log.trace("[{}] Consumer for address {} already registered, skipping", assignedPackage, address);
                     return;
                 }
 
-                log.debug("[{}] Registering class-based consumer for address: {}", assignedPackage, address);
+                log.trace("[{}] Registering class-based consumer for address: {}", assignedPackage, address);
 
                 int instances = Math.max(1, eventDefinition.options().instances() > 0 ? eventDefinition.options().instances() : eventDefinition.options().consumerCount());
                 boolean local = eventDefinition.options().localOnly();
@@ -463,11 +463,11 @@ public class VertxEventRegistry {
 
                 // Skip if already registered
                 if (registeredAddresses.contains(address)) {
-                    log.debug("[{}] Method consumer for address {} already registered, skipping", assignedPackage, address);
+                    log.trace("[{}] Method consumer for address {} already registered, skipping", assignedPackage, address);
                     return;
                 }
 
-                log.debug("[{}] Registering method-based consumer for address: {}", assignedPackage, address);
+                log.trace("[{}] Registering method-based consumer for address: {}", assignedPackage, address);
 
                 int instances = Math.max(1, eventDefinition.options().instances() > 0 ? eventDefinition.options().instances() : eventDefinition.options().consumerCount());
                 boolean local = eventDefinition.options().localOnly();
@@ -544,7 +544,7 @@ public class VertxEventRegistry {
                 }
             }
 
-            log.debug("Dispatching message on address {}, worker={}, pool={}", message.address(), isWorker, resolvedPool);
+            log.trace("Dispatching message on address {}, worker={}, pool={}", message.address(), isWorker, resolvedPool);
 
             if (isWorker) {
                 if (resolvedPool != null && !resolvedPool.isEmpty()) {
@@ -552,7 +552,7 @@ public class VertxEventRegistry {
                     final String poolName = resolvedPool;
                     WorkerExecutor exec = workerExecutors.computeIfAbsent(poolName, name -> vertx.createSharedWorkerExecutor(name, size));
                     Future<Void> fut = exec.<Void>executeBlocking(() -> {
-                        log.debug("Executing on named worker pool: {}", poolName);
+                        log.trace("Executing on named worker pool: {}", poolName);
                         invokeConsumerMethod(message, method, methodClass);
                         return null;
                     }, false);
@@ -561,7 +561,7 @@ public class VertxEventRegistry {
                 } else {
                     var currentContext = Vertx.currentContext();
                     Future<Void> fut = currentContext.<Void>executeBlocking(() -> {
-                        log.debug("Executing on default worker pool");
+                        log.trace("Executing on default worker pool");
                         invokeConsumerMethod(message, method, methodClass);
                         return null;
                     }, false);
@@ -819,7 +819,7 @@ public class VertxEventRegistry {
                                 JsonObject jsonObject = (JsonObject) body;
                                 Object converted = IJsonRepresentation.getObjectMapper()
                                         .readValue(jsonObject.encode(), bodyType);
-                                log.debug("Converted Message body JsonObject to {}", bodyType.getName());
+                                log.trace("Converted Message body JsonObject to {}", bodyType.getName());
                                 // Wrap the original message with the converted body
                                 resolvedMessage = new MessageWrapper<>(message, converted);
                             } catch (Exception e) {
@@ -843,7 +843,7 @@ public class VertxEventRegistry {
                         Type referenceType = eventConsumerReferenceTypes.get(address);
                         if (referenceType != null) {
                             // Use the stored reference type for deserialization
-                            log.debug("Using stored reference type {} for deserialization at address: {}",
+                            log.trace("Using stored reference type {} for deserialization at address: {}",
                                     referenceType.getTypeName(), address);
                             params[i] = IJsonRepresentation.getObjectMapper()
                                     .readValue(jsonObject.encode(),
@@ -853,7 +853,7 @@ public class VertxEventRegistry {
                             params[i] = IJsonRepresentation.getObjectMapper()
                                     .readValue(jsonObject.encode(), paramType);
                         }
-                        log.debug("Converted JsonObject to {}: {}", paramType.getName(), params[i]);
+                        log.trace("Converted JsonObject to {}: {}", paramType.getName(), params[i]);
                     } catch (Exception e) {
                         log.error("Error converting JsonObject to " + paramType.getName(), e);
                         params[i] = body;
@@ -868,12 +868,12 @@ public class VertxEventRegistry {
                         // preserved; otherwise fall back to the parameter's generic signature.
                         Type referenceType = eventConsumerReferenceTypes.get(address);
                         Type targetType = referenceType != null ? referenceType : param.getParameterizedType();
-                        log.debug("Using type {} to deserialize JsonArray at address: {}",
+                        log.trace("Using type {} to deserialize JsonArray at address: {}",
                                 targetType.getTypeName(), address);
                         params[i] = IJsonRepresentation.getObjectMapper()
                                 .readValue(jsonArray.encode(),
                                         IJsonRepresentation.getObjectMapper().getTypeFactory().constructType(targetType));
-                        log.debug("Converted JsonArray to {}: {}", targetType.getTypeName(), params[i]);
+                        log.trace("Converted JsonArray to {}: {}", targetType.getTypeName(), params[i]);
                     } catch (Exception e) {
                         log.error("Error converting JsonArray to " + paramType.getName(), e);
                         params[i] = body;
