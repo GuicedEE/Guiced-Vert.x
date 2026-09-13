@@ -4,6 +4,7 @@ import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.guicedee.client.IGuiceContext;
+import com.guicedee.client.implementations.GuicedEEClientModule;
 import com.guicedee.client.services.IDefaultService;
 import com.guicedee.client.services.IGuiceConfig;
 import com.guicedee.client.services.lifecycle.IGuicePreDestroy;
@@ -82,6 +83,7 @@ public class TestGuiceContext implements IGuiceContext {
 
                         // Collect all modules: user-registered + VertXModule
                         List<Module> allModules = new ArrayList<>(IGuiceContext.modules);
+                        allModules.add(new GuicedEEClientModule());
                         allModules.add(new VertXModule());
                         injector = Guice.createInjector(allModules);
                     } finally {
