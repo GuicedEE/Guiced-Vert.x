@@ -27,7 +27,10 @@ import java.util.ServiceLoader;
  */
 @Getter
 public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuicePreDestroy<VertXPreStartup> {
-    private static Vertx vertx;
+    private static volatile Vertx vertx;
+    private static Future<Void> closing;
+    private static Future<Vertx> starting;
+    private static Future<Void> resourceClosing;
 
     public static Optional<io.vertx.core.Verticle> getAssociatedVerticle(Class<?> clazz) {
         String packageName = clazz.getPackageName(); // Get package name of the class
@@ -42,63 +45,37 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
 
     @Override
     public List<Future<Boolean>> onStartup() {
-        if (vertx == null) {
-            // Force CallScoper class loading so its ContextLocal key is registered
-            // BEFORE the Vertx instance is created — Vert.x 5 requires all
-            // ContextLocal keys to be registered before Vertx.builder().build().
-            try {
-                Class.forName("com.guicedee.client.scopes.CallScoper");
-            } catch (ClassNotFoundException e) {
-                // CallScoper is in com.guicedee.client which is always present
-                throw new RuntimeException("Failed to pre-load CallScoper for ContextLocal registration", e);
+        final io.vertx.core.Promise<Vertx> resource;
+        synchronized (VertXPreStartup.class) {
+            if (closing != null) {
+                if (!closing.isComplete()) return List.of(Future.failedFuture("Vertx is still stopping"));
+                closing = null;starting = null;resourceClosing = null;
             }
-
-            // Vert.x JSON is explicitly configured to use the GuicedEE Jackson 3
-            // (tools.jackson) mapper via the io.vertx.core.spi.JsonFactory SPI
-            // (com.guicedee.vertx.spi.json.GuicedVertxJsonFactory, registered in
-            // module-info / META-INF/services with the lowest order so it is preferred).
-            // This avoids Vert.x's multi-release JacksonFactory falling back to the
-            // Jackson 2 core-only codec — which throws "Mapping <type> is not available
-            // without Jackson Databind on the classpath" — when Jackson 2 core is present
-            // without Jackson 2 databind.
-
-            // Initialize the Vertx builder
-            VertxBuilder builder = Vertx.builder();
-
-            // Configure Vertx options based on annotations
-            configureVertxOptions(builder);
-
-            // Apply additional configurations from ServiceLoader
-            applyServiceLoaderConfigurations(builder);
-
-            if (clusterMode) {
-                // Clustered mode — buildClustered() returns Future<Vertx>
-                return List.of(builder.buildClustered().map(clusteredVertx -> {
-                    vertx = clusteredVertx;
-                    // Scan event definitions early so codec registry has full type info
-                    VertxEventRegistry.scanAndRegisterEvents();
-                    // Register dynamic codecs for all event types up-front
-                    CodecRegistry.createAndRegisterCodecsForAllEventTypes(vertx);
-                    return true;
-                }));
-            }
-
-            // Build the Vertx instance (non-clustered)
-            vertx = builder.build();
-
-            // Scan event definitions early so codec registry has full type info
-            // This populates eventConsumerDefinitions and eventConsumerClass maps
-            VertxEventRegistry.scanAndRegisterEvents();
-
-            // Register dynamic codecs for all event types up-front
-            CodecRegistry.createAndRegisterCodecsForAllEventTypes(vertx);
-
-            // Verticle deployment is deferred to VertxVerticlePostStartup (IGuicePostStartup)
-            // so that VerticleStartup implementations can safely use the Guice injector.
+            if (starting != null) return List.of(starting.map(true));
+            if (vertx != null) return List.of(Future.succeededFuture(true));
+            resource = io.vertx.core.Promise.promise();starting = resource.future();
         }
-        return List.of(Future.succeededFuture(true));
+        try {
+            Class.forName("com.guicedee.client.scopes.CallScoper");
+            VertxBuilder builder = Vertx.builder();
+            configureVertxOptions(builder);
+            applyServiceLoaderConfigurations(builder);
+            Future<Vertx> created = clusterMode ? builder.buildClustered() : Future.succeededFuture(builder.build());
+            created.onComplete(result -> {
+                if (result.failed()) { resource.tryFail(result.cause());return; }
+                Vertx instance = result.result();
+                synchronized (VertXPreStartup.class) { vertx = instance; }
+                try {
+                    VertxEventRegistry.scanAndRegisterEvents();
+                    CodecRegistry.createAndRegisterCodecsForAllEventTypes(instance);
+                    resource.tryComplete(instance);
+                } catch (Throwable failure) {
+                    closeInstance(instance).onComplete(closed -> resource.tryFail(failure));
+                }
+            });
+        } catch (Throwable failure) { resource.tryFail(failure); }
+        return List.of(resource.future().map(true));
     }
-
 
     private void configureVertxOptions(VertxBuilder builder) {
         // Process the @VertX annotation
@@ -500,23 +477,59 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     }
 
 
-    public static Vertx getVertx() {
+    public static synchronized Vertx getVertx() {
+        if (closing != null) throw new IllegalStateException("Vertx is stopped");
         if (vertx == null) {
             new VertXPreStartup().onStartup();
         }
         return vertx;
     }
 
-    @Override
-    public void onDestroy() {
-        VertxEventRegistry.reset();
-        VerticleBuilder.reset();
-        CodecRegistry.reset();
-        if (vertx != null) {
-            vertx.close();
-            vertx = null;
+    /** Starts one asynchronous close; explicit startup is required before a stopped runtime can be reused. */
+    private static synchronized Future<Void> closeInstance(Vertx instance) {
+        if (resourceClosing == null) {
+            try { resourceClosing = instance.close(); }
+            catch (Throwable failure) { resourceClosing = Future.failedFuture(failure); }
         }
+        return resourceClosing;
     }
+
+    public static synchronized Future<Void> closeVertx() {
+        if (closing != null) return closing;
+        var completion = io.vertx.core.Promise.<Void>promise();
+        closing = completion.future();
+        Vertx retained = vertx;
+        Future<Void> stopped;
+        try {
+            // A clustered or synchronously delayed startup can produce its resource
+            // after shutdown begins. Await that result and close it before completing.
+            stopped = starting == null
+                    ? (retained == null ? Future.succeededFuture() : closeInstance(retained))
+                    : starting.transform(result -> {
+                        synchronized (VertXPreStartup.class) {
+                            if (result.succeeded()) return closeInstance(result.result());
+                            if (resourceClosing != null) return resourceClosing;
+                            return vertx == null ? Future.succeededFuture() : closeInstance(vertx);
+                        }
+                    });
+        }
+        catch (Throwable failure) { stopped = Future.failedFuture(failure); }
+        stopped.onComplete(result -> {
+            synchronized (VertXPreStartup.class) {
+                vertx = null;
+                VertxEventRegistry.reset();VerticleBuilder.reset();CodecRegistry.reset();
+                completion.handle(result);
+            }
+        });
+        return completion.future();
+    }
+    @Override public void onDestroy() {
+        if (io.vertx.core.Context.isOnEventLoopThread()) throw new IllegalStateException("Shutdown cannot block an event loop");
+        try { closeVertx().toCompletionStage().toCompletableFuture().get(20, java.util.concurrent.TimeUnit.SECONDS); }
+        catch (InterruptedException interrupted) { Thread.currentThread().interrupt();throw new IllegalStateException("Vertx shutdown interrupted"); }
+        catch (Exception failed) { throw new IllegalStateException("Vertx shutdown failed"); }
+    }
+    @Override public Integer shutdownSortOrder() { return Integer.MAX_VALUE; }
 
     @Override
     public Integer sortOrder() {
