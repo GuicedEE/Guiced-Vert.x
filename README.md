@@ -386,11 +386,17 @@ flowchart LR
     com_guicedee_vertx --> com_guicedee_jsonrepresentation["com.guicedee.jsonrepresentation<br/>JSON codec support"]
     com_guicedee_vertx --> io_vertx_core["io.vertx.core<br/>Vert.x runtime"]
     com_guicedee_vertx --> io_vertx_auth_common["io.vertx.auth.common<br/>Authentication & Authorization"]
-    com_guicedee_vertx --> io_vertx_mutiny["io.vertx.mutiny<br/>Mutiny bindings"]
     com_guicedee_vertx --> io_smallrye_mutiny["io.smallrye.mutiny<br/>reactive streams"]
+    com_guicedee_vertx --> jakarta_cdi["jakarta.cdi<br/>annotation API compatibility"]
     com_guicedee_vertx --> io_github_classgraph["io.github.classgraph<br/>annotation scanning"]
     com_guicedee_vertx --> com_fasterxml_jackson_databind["com.fasterxml.jackson.databind<br/>JSON mapping"]
 ```
+
+Reactive helpers expose `Uni` from `io.smallrye.mutiny`. Applications using
+`io.vertx.mutiny.*` wrapper types must declare the `vertx-mutiny` dependency and
+`requires io.vertx.mutiny` themselves; Guiced Vert.x does not require those bindings.
+The transitive `jakarta.cdi` API remains available for existing consumers, including
+access to `jakarta.inject` annotations. Its Maven dependency is declared directly.
 
 ## 🤝 Contributing
 

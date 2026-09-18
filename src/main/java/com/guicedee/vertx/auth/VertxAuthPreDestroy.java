@@ -13,69 +13,40 @@ public class VertxAuthPreDestroy implements IGuicePreDestroy<VertxAuthPreDestroy
     public void onDestroy()
     {
         log.info("Cleaning up Vert.x auth state");
-        // Clean up OAuth2 provider if present
-        try
+        String[][] providers = {
+                {"oauth2.OAuth2Auth", "oauth2.OAuth2AuthenticationProvider"},
+                {"jwt.JWTAuth", "jwt.JwtAuthenticationProvider"},
+                {"abac.PolicyBasedAuthorizationProvider", "abac.AbacAuthorizationProvider"},
+                {"otp.totp.TotpAuth", "otp.OtpAuthenticationProvider"},
+                {"properties.PropertyFileAuthentication", "properties.PropertyFileAuthenticationProvider"},
+                {"properties.PropertyFileAuthorization", "properties.PropertyFileAuthorizationProvider"},
+                {"ldap.LdapAuthentication", "ldap.LdapAuthenticationProvider"},
+                {"htpasswd.HtpasswdAuth", "htpasswd.HtpasswdAuthenticationProvider"},
+                {"htdigest.HtdigestAuth", "htdigest.HtdigestAuthenticationProvider"}
+        };
+        IllegalStateException failure = null;
+        for (String[] provider : providers)
         {
-            Class.forName("com.guicedee.vertx.auth.oauth2.OAuth2AuthenticationProvider")
-                    .getMethod("reset").invoke(null);
+            try
+            {
+                Class.forName("io.vertx.ext.auth." + provider[0], false, getClass().getClassLoader());
+            }
+            catch (ClassNotFoundException absent)
+            {
+                continue;
+            }
+            try
+            {
+                Class.forName("com.guicedee.vertx.auth." + provider[1]).getMethod("reset").invoke(null);
+            }
+            catch (ReflectiveOperationException | LinkageError failed)
+            {
+                if (failure == null) failure = new IllegalStateException("Vert.x auth cleanup failed");
+                failure.addSuppressed(failed);
+            }
         }
-        catch (Exception _) { }
-        // Clean up JWT provider if present
-        try
-        {
-            Class.forName("com.guicedee.vertx.auth.jwt.JwtAuthenticationProvider")
-                    .getMethod("reset").invoke(null);
-        }
-        catch (Exception _) { }
-        // Clean up ABAC provider if present
-        try
-        {
-            Class.forName("com.guicedee.vertx.auth.abac.AbacAuthorizationProvider")
-                    .getMethod("reset").invoke(null);
-        }
-        catch (Exception _) { }
-        // Clean up OTP provider if present
-        try
-        {
-            Class.forName("com.guicedee.vertx.auth.otp.OtpAuthenticationProvider")
-                    .getMethod("reset").invoke(null);
-        }
-        catch (Exception _) { }
-        // Clean up property file providers if present
-        try
-        {
-            Class.forName("com.guicedee.vertx.auth.properties.PropertyFileAuthenticationProvider")
-                    .getMethod("reset").invoke(null);
-        }
-        catch (Exception _) { }
-        try
-        {
-            Class.forName("com.guicedee.vertx.auth.properties.PropertyFileAuthorizationProvider")
-                    .getMethod("reset").invoke(null);
-        }
-        catch (Exception _) { }
-        // Clean up LDAP provider if present
-        try
-        {
-            Class.forName("com.guicedee.vertx.auth.ldap.LdapAuthenticationProvider")
-                    .getMethod("reset").invoke(null);
-        }
-        catch (Exception _) { }
-        // Clean up htpasswd provider if present
-        try
-        {
-            Class.forName("com.guicedee.vertx.auth.htpasswd.HtpasswdAuthenticationProvider")
-                    .getMethod("reset").invoke(null);
-        }
-        catch (Exception _) { }
-        // Clean up htdigest provider if present
-        try
-        {
-            Class.forName("com.guicedee.vertx.auth.htdigest.HtdigestAuthenticationProvider")
-                    .getMethod("reset").invoke(null);
-        }
-        catch (Exception _) { }
         VertxAuthPreStartup.reset();
+        if (failure != null) throw failure;
     }
 
     @Override

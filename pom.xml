@@ -145,8 +145,8 @@
             <artifactId>mutiny</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.guicedee.modules.services</groupId>
-            <artifactId>vertx-mutiny</artifactId>
+            <groupId>jakarta.enterprise</groupId>
+            <artifactId>jakarta.enterprise.cdi-api</artifactId>
         </dependency>
     </dependencies>
     <build>

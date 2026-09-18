@@ -1,6 +1,8 @@
 package com.guicedee.vertx.spi.test;
 
 import com.guicedee.vertx.spi.VertXPreStartup;
+import com.guicedee.vertx.VertXPostStartup;
+import com.guicedee.client.services.lifecycle.IGuicePreDestroy;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -20,6 +22,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class VertxShutdownOwnershipTest {
     private Vertx runtime;
+
+    private IGuicePreDestroy<?> registeredHook() {
+        return java.util.ServiceLoader.load(IGuicePreDestroy.class).stream()
+                .filter(provider -> provider.type() == VertXPostStartup.class)
+                .findFirst().orElseThrow().get();
+    }
 
     @BeforeEach void initialize() throws Exception {
         resetOwner();
@@ -46,6 +54,7 @@ class VertxShutdownOwnershipTest {
         var owner = new VertXPreStartup();
         assertTrue(owner.sortOrder() < 0);
         assertEquals(Integer.MAX_VALUE, owner.shutdownSortOrder());
+        assertEquals(Integer.MAX_VALUE, registeredHook().shutdownSortOrder());
     }
 
     @Test void pendingStartupIsAwaitedAndItsLateRuntimeIsClosedExactlyOnce() throws Exception {
@@ -64,7 +73,8 @@ class VertxShutdownOwnershipTest {
         var closed = VertXPreStartup.closeVertx();
         assertFalse(closed.isComplete());
         pending.complete(runtime);
-        new VertXPreStartup().onDestroy();
+        registeredHook().onDestroy();
+        registeredHook().onDestroy();
         assertTrue(closed.succeeded());
         assertSame(closed, VertXPreStartup.closeVertx());
         assertEquals(1, stops.get());
@@ -82,6 +92,6 @@ class VertxShutdownOwnershipTest {
                 () -> closed.toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
         assertEquals("fixture-cleanup-failure", failure.getCause().getMessage());
         assertSame(closed, VertXPreStartup.closeVertx());
-        assertThrows(IllegalStateException.class, () -> new VertXPreStartup().onDestroy());
+        assertThrows(IllegalStateException.class, () -> registeredHook().onDestroy());
     }
 }

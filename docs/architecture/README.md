@@ -9,6 +9,14 @@
 - ERD — ./erd-event-model.md
 
 ## Scope & Architecture Overview
+
+Shutdown contract: the registered `VertXPostStartup` hook delegates to
+`VertXPreStartup`'s retained, awaited owner and uses its terminal shutdown priority.
+It must run after persistence, listeners and auth cleanup, never call `getVertx()`
+to create a runtime while stopping, and never close the resource twice. Auth cleanup
+checks that each optional Vert.x auth API is available before resolving its provider;
+an absent optional module is skipped, while a present provider's reset failure is
+reported after the other providers and shared auth state have been cleaned up.
 - Purpose: bridge GuicedEE Client lifecycle with Vert.x 5, exposing a singleton Vertx binding, codec registry, and event publisher/consumer wiring via CRTP-aligned APIs.
 - Design pillars: Specification-Driven Design, Documentation-as-Code, forward-only docs with topic-first glossary, and CRTP fluent APIs (no Builder/Lombok).
 - Lifecycle: `VertXPreStartup` boots Vert.x, scans @VertxEventDefinition, registers codecs, installs Guice bindings; `VertXPostStartup` handles verticle startup/configurators and static `VertX` access.

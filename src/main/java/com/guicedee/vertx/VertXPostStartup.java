@@ -15,14 +15,13 @@ public class VertXPostStartup implements IGuicePreDestroy<VertXPostStartup>
     @Override
     public void onDestroy()
     {
-        if (VertXPreStartup.getVertx() != null)
-        {
-            VertXPreStartup.getVertx().close();
-        }
-        if (VertXPreStartup.getVertx() != null)
-        {
-            VertXPreStartup.getVertx().close();
-        }
+        new VertXPreStartup().onDestroy();
+    }
+
+    @Override
+    public Integer shutdownSortOrder()
+    {
+        return Integer.MAX_VALUE;
     }
 
     @Override

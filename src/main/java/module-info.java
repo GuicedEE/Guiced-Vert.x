@@ -37,7 +37,6 @@ module com.guicedee.vertx {
     requires transitive tools.jackson.core;
 
     requires transitive io.smallrye.mutiny;
-    requires transitive io.vertx.mutiny;
 
     requires transitive jakarta.cdi;
 
