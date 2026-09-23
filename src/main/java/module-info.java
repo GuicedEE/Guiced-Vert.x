@@ -8,7 +8,6 @@ import com.guicedee.vertx.implementations.VertxClassScanConfig;
 import com.guicedee.vertx.spi.*;
 
 module com.guicedee.vertx {
-    requires transitive io.vertx.core;
     requires transitive io.vertx.auth.common;
 
     requires static io.vertx.auth.oauth2;
@@ -32,7 +31,6 @@ module com.guicedee.vertx {
 
     requires transitive org.apache.logging.log4j;
 
-    requires transitive tools.jackson.databind;
     requires transitive com.fasterxml.jackson.annotation;
     requires transitive tools.jackson.core;
 
@@ -40,7 +38,6 @@ module com.guicedee.vertx {
 
     requires transitive jakarta.cdi;
 
-    requires io.github.classgraph;
 
     requires static lombok;
 
