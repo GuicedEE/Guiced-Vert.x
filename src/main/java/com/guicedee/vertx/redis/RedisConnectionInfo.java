@@ -19,7 +19,7 @@ import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
  * <p>
  * Supports all 4 Redis client modes: Standalone, Sentinel, Cluster, and Replication.
  *
- * <h3>Environment Variable Pattern</h3>
+ * <h2>Environment Variable Pattern</h2>
  * <pre>
  * REDIS_{NAME}_CONNECTION_STRING, REDIS_{NAME}_TYPE,
  * REDIS_{NAME}_MAX_POOL_SIZE, REDIS_{NAME}_MAX_WAITING,

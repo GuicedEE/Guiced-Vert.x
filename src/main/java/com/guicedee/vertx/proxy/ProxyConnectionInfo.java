@@ -21,7 +21,7 @@ import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
  * The proxy listens on {@link #proxyHost}:{@link #proxyPort} and forwards
  * requests to {@link #originHost}:{@link #originPort}.
  *
- * <h3>Environment Variable Pattern</h3>
+ * <h2>Environment Variable Pattern</h2>
  * <pre>
  * PROXY_{NAME}_HOST, PROXY_{NAME}_PORT,
  * PROXY_{NAME}_ORIGIN_HOST, PROXY_{NAME}_ORIGIN_PORT,

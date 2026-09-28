@@ -18,7 +18,7 @@ import lombok.extern.log4j.Log4j2;
 /**
  * A Guice module that creates and binds a Vert.x {@link HttpProxy} reverse proxy into the injector.
  * <p>
- * <h3>Usage</h3>
+ * <h2>Usage</h2>
  * <ol>
  *   <li>Subclass this class and implement {@link #getProxyConnectionInfo()}.</li>
  *   <li>Register the subclass as an {@code IGuiceModule} SPI provider.</li>

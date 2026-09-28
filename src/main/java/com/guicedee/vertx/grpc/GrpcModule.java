@@ -23,7 +23,7 @@ import java.util.ServiceLoader;
  * A Guice module that creates and binds Vert.x {@link GrpcServer} and {@link GrpcClient}
  * instances into the injector.
  * <p>
- * <h3>Usage</h3>
+ * <h2>Usage</h2>
  * <ol>
  *   <li>Subclass this class and implement {@link #getGrpcConnectionInfo()}.</li>
  *   <li>Register the subclass as an {@code IGuiceModule} SPI provider.</li>

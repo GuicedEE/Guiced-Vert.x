@@ -20,7 +20,7 @@ import java.util.List;
 /**
  * A Guice module that creates and binds a Vert.x {@link Redis} client and {@link RedisAPI} into the injector.
  * <p>
- * <h3>Usage</h3>
+ * <h2>Usage</h2>
  * <ol>
  *   <li>Subclass this class and implement {@link #getRedisConnectionInfo()}.</li>
  *   <li>Register the subclass as an {@code IGuiceModule} SPI provider.</li>

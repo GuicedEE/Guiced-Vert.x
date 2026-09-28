@@ -16,7 +16,7 @@ import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
  * <p>
  * Supports environment variable resolution for all connection properties.
  *
- * <h3>Environment Variable Pattern</h3>
+ * <h2>Environment Variable Pattern</h2>
  * <pre>
  * GRPC_{NAME}_HOST, GRPC_{NAME}_PORT,
  * GRPC_{NAME}_TLS_ENABLED, GRPC_{NAME}_TLS_CERT_PATH,

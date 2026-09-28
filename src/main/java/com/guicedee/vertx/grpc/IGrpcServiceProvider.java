@@ -9,7 +9,7 @@ import io.vertx.grpc.server.GrpcServer;
  * {@code module-info.java} to have your gRPC services automatically added
  * to the server during startup.
  *
- * <h3>Usage</h3>
+ * <h2>Usage</h2>
  * <pre>{@code
  * public class GreeterServiceProvider implements IGrpcServiceProvider {
  *     @Override
