@@ -21,7 +21,7 @@ public class VertXPostStartup implements IGuicePreDestroy<VertXPostStartup>
     @Override
     public Integer shutdownSortOrder()
     {
-        return Integer.MAX_VALUE;
+        return Integer.MAX_VALUE - 200;
     }
 
     @Override

@@ -58,8 +58,8 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
         try {
             Class.forName("com.guicedee.client.scopes.CallScoper");
             VertxBuilder builder = Vertx.builder();
-            configureVertxOptions(builder);
-            applyServiceLoaderConfigurations(builder);
+            VertxOptions options = configureVertxOptions();
+            builder = applyServiceLoaderConfigurations(builder, options);
             Future<Vertx> created = clusterMode ? builder.buildClustered() : Future.succeededFuture(builder.build());
             created.onComplete(result -> {
                 if (result.failed()) { resource.tryFail(result.cause());return; }
@@ -77,7 +77,8 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
         return List.of(resource.future().map(true));
     }
 
-    private void configureVertxOptions(VertxBuilder builder) {
+    private VertxOptions configureVertxOptions() {
+        VertxOptions options = new VertxOptions();
         // Process the @VertX annotation
         var vertxStaticConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(VertX.class);
         if (vertxStaticConfig.size() > 1) {
@@ -175,18 +176,19 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
                     return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_DISABLE_TCCL", String.valueOf(annotation.disableTCCL())));
                 }
             };
-            applyVertxAnnotation(builder, wrappedVertX);
+            applyVertxAnnotation(options, wrappedVertX);
         }
 
         // Process other configuration annotations
-        processMetricsOptions(builder);
-        processFileSystemOptions(builder);
-        processEventBusOptions(builder);
-        processAddressResolverOptions(builder);
+        processMetricsOptions(options);
+        processFileSystemOptions(options);
+        processEventBusOptions(options);
+        processAddressResolverOptions(options);
+        return options;
     }
 
-    private void applyVertxAnnotation(VertxBuilder builder, VertX annotation) {
-        builder.with(new VertxOptions()
+    private void applyVertxAnnotation(VertxOptions options, VertX annotation) {
+        options
                 .setEventLoopPoolSize(annotation.eventLoopPoolSize())
                 .setWorkerPoolSize(annotation.workerPoolSize())
                 .setBlockedThreadCheckInterval(annotation.blockedThreadCheckInterval())
@@ -200,11 +202,10 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
                 .setHAEnabled(annotation.haEnabled())
                 .setQuorumSize(annotation.quorumSize())
                 .setWarningExceptionTime(annotation.warningExceptionTime())
-                .setDisableTCCL(annotation.disableTCCL())
-        );
+                .setDisableTCCL(annotation.disableTCCL());
     }
 
-    private void processMetricsOptions(VertxBuilder builder) {
+    private void processMetricsOptions(VertxOptions options) {
         var metricsConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(MetricsOptions.class);
         if (metricsConfig.size() == 1) {
             var clazz = metricsConfig.getFirst().loadClass();
@@ -221,14 +222,13 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
                         return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_METRICS_ENABLED", String.valueOf(metricsAnnotation.enabled())));
                     }
                 };
-                builder.with(new VertxOptions()
-                        .setMetricsOptions(new io.vertx.core.metrics.MetricsOptions().setEnabled(wrappedMetrics.enabled()))
-                );
+                options
+                        .setMetricsOptions(new io.vertx.core.metrics.MetricsOptions().setEnabled(wrappedMetrics.enabled()));
             }
         }
     }
 
-    private void processFileSystemOptions(VertxBuilder builder) {
+    private void processFileSystemOptions(VertxOptions options) {
         var fileSystemConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(FileSystemOptions.class);
         if (fileSystemConfig.size() == 1) {
             var clazz = fileSystemConfig.getFirst().loadClass();
@@ -255,18 +255,17 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
                         return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_FILESYSTEM_FILE_CACHE_DIR", fileSystemAnnotation.fileCacheDir());
                     }
                 };
-                builder.with(new VertxOptions()
+                options
                         .setFileSystemOptions(new io.vertx.core.file.FileSystemOptions()
                                 .setClassPathResolvingEnabled(wrappedFS.classPathResolvingEnabled())
                                 .setFileCachingEnabled(wrappedFS.fileCachingEnabled())
                                 .setFileCacheDir(wrappedFS.fileCacheDir())
-                        )
-                );
+                        );
             }
         }
     }
 
-    private void processEventBusOptions(VertxBuilder builder) {
+    private void processEventBusOptions(VertxOptions options) {
         var eventBusConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(EventBusOptions.class);
         if (eventBusConfig.size() == 1) {
             var clazz = eventBusConfig.getFirst().loadClass();
@@ -338,7 +337,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
                         return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLIENT_AUTH", eventBusAnnotation.clientAuth());
                     }
                 };
-                builder.with(new VertxOptions()
+                options
                         .setEventBusOptions(new io.vertx.core.eventbus.EventBusOptions()
                                 .setClusterPublicHost(wrappedEB.clusterPublicHost())
                                 .setClusterPublicPort(wrappedEB.clusterPublicPort())
@@ -352,13 +351,12 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
                                 .setConnectTimeout(wrappedEB.connectTimeout())
                                 .setTrustAll(wrappedEB.trustAll())
                                 .setClientAuth(io.vertx.core.http.ClientAuth.valueOf(wrappedEB.clientAuth()))
-                        )
-                );
+                        );
             }
         }
     }
 
-    private void processAddressResolverOptions(VertxBuilder builder) {
+    private void processAddressResolverOptions(VertxOptions options) {
         var addressResolverConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(AddressResolverOptions.class);
         if (addressResolverConfig.size() == 1) {
             var clazz = addressResolverConfig.getFirst().loadClass();
@@ -442,7 +440,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
                         return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_ROUND_ROBIN", String.valueOf(addressResolverAnnotation.roundRobinInetAddress())));
                     }
                 };
-                builder.with(new VertxOptions()
+                options
                         .setAddressResolverOptions(new io.vertx.core.dns.AddressResolverOptions()
                                 .setHostsPath(wrappedAR.hostsPath())
                                 .setHostsRefreshPeriod(wrappedAR.hostsRefreshPeriod())
@@ -458,24 +456,33 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
                                 .setNdots(wrappedAR.ndots())
                                 .setOptResourceEnabled(wrappedAR.optResourceEnabled())
                                 .setRoundRobinInetAddress(wrappedAR.roundRobinInetAddress())
-                        )
-                );
+                        );
             }
         }
     }
 
     private boolean clusterMode = false;
 
-    private void applyServiceLoaderConfigurations(VertxBuilder builder) {
-        ServiceLoader<VertxConfigurator> load = ServiceLoader.load(VertxConfigurator.class);
-        for (VertxConfigurator a : load) {
-            if (a instanceof ClusterVertxConfigurator) {
+    private VertxBuilder applyServiceLoaderConfigurations(VertxBuilder builder, VertxOptions options) {
+        clusterMode = false;
+        var configurations = ServiceLoader.load(VertxConfigurator.class).stream().map(ServiceLoader.Provider::get).toList();
+        for (VertxConfigurator configuration : configurations) options = configuration.options(options);
+        builder.with(options);
+        for (VertxConfigurator a : configurations) {
+            if (a instanceof ClusterVertxConfigurator cluster) {
+                if (!cluster.enabled()) continue;
+                if (clusterMode) throw new IllegalStateException("Multiple enabled Vert.x cluster managers");
                 clusterMode = true;
             }
             builder = a.builder(builder);
         }
+        return builder;
     }
 
+
+    public static synchronized boolean ready() {
+        return closing == null && starting != null && starting.succeeded() && vertx != null;
+    }
 
     public static synchronized Vertx getVertx() {
         if (closing != null) throw new IllegalStateException("Vertx is stopped");
@@ -529,7 +536,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
         catch (InterruptedException interrupted) { Thread.currentThread().interrupt();throw new IllegalStateException("Vertx shutdown interrupted"); }
         catch (Exception failed) { throw new IllegalStateException("Vertx shutdown failed"); }
     }
-    @Override public Integer shutdownSortOrder() { return Integer.MAX_VALUE; }
+    @Override public Integer shutdownSortOrder() { return Integer.MAX_VALUE - 200; }
 
     @Override
     public Integer sortOrder() {

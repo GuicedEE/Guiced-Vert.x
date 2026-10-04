@@ -59,6 +59,9 @@ public interface ClusterVertxConfigurator extends VertxConfigurator {
      */
     ClusterManager getClusterManager();
 
+    /** Explicit configurators retain their intentional activation; optional integrations may opt out. */
+    default boolean enabled() { return true; }
+
     /**
      * Configures the VertxBuilder with the cluster manager.
      * Default implementation adds the cluster manager to the builder.

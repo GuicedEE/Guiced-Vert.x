@@ -53,8 +53,8 @@ class VertxShutdownOwnershipTest {
     @Test void startupAndShutdownUseDifferentPriorities() {
         var owner = new VertXPreStartup();
         assertTrue(owner.sortOrder() < 0);
-        assertEquals(Integer.MAX_VALUE, owner.shutdownSortOrder());
-        assertEquals(Integer.MAX_VALUE, registeredHook().shutdownSortOrder());
+        assertEquals(Integer.MAX_VALUE - 200, owner.shutdownSortOrder());
+        assertEquals(Integer.MAX_VALUE - 200, registeredHook().shutdownSortOrder());
     }
 
     @Test void pendingStartupIsAwaitedAndItsLateRuntimeIsClosedExactlyOnce() throws Exception {

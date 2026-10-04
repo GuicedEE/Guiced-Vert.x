@@ -8,6 +8,8 @@ import com.guicedee.vertx.implementations.VertxClassScanConfig;
 import com.guicedee.vertx.spi.*;
 
 module com.guicedee.vertx {
+    requires io.netty.transport;
+    requires io.netty.common;
     requires transitive io.vertx.auth.common;
 
     requires static io.vertx.auth.oauth2;

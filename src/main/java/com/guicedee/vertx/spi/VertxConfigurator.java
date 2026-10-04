@@ -9,4 +9,7 @@ import io.vertx.core.VertxBuilder;
 @FunctionalInterface
 public interface VertxConfigurator {
     VertxBuilder builder(VertxBuilder builder);
+
+    /** Compose options before the builder is configured. Return the shared options or an intentional replacement. */
+    default io.vertx.core.VertxOptions options(io.vertx.core.VertxOptions options) { return options; }
 }
