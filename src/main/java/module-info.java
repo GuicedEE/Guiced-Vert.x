@@ -8,6 +8,7 @@ import com.guicedee.vertx.implementations.VertxClassScanConfig;
 import com.guicedee.vertx.spi.*;
 
 module com.guicedee.vertx {
+    provides io.vertx.core.spi.VertxServiceProvider with com.guicedee.vertx.HttpTransportCapture;
     requires io.netty.transport;
     requires io.netty.common;
     requires transitive io.vertx.auth.common;

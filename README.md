@@ -392,6 +392,26 @@ flowchart LR
     com_guicedee_vertx --> com_fasterxml_jackson_databind["com.fasterxml.jackson.databind<br/>JSON mapping"]
 ```
 
+## Bounded HTTP stream cancellation
+
+`HttpTransportCapture` is dual-registered as a Vert.x service provider. It wraps
+the selected transport's server factory, retaining at most 8192 active accepted
+TCP contexts before TLS and HTTP outbound handlers. Other transport behavior is
+delegated unchanged. Channel closure releases the context and capacity.
+
+Owners of long-lived private responses resolve
+`HttpTransportCapture.cancellation(request)` at admission and retain that
+callback for termination. HTTP/1 requires a captured, active transport; otherwise
+admission fails. The callback pins the exact accepted channel so reused TCP
+endpoints cannot redirect later cancellation. It cancels the response and
+schedules physical closure after two seconds beneath a blocked HTTP/TLS flush.
+Channel closure cancels that deadline. HTTP/2 uses the response's stream-local
+cancellation and never schedules connection-wide closure.
+
+Release application subscriptions, timers and authorization state before invoking
+the callback. Test with a real peer that stops reading, including TLS and router
+wrappers; response-future completion alone does not prove physical closure.
+
 Reactive helpers expose `Uni` from `io.smallrye.mutiny`. Applications using
 `io.vertx.mutiny.*` wrapper types must declare the `vertx-mutiny` dependency and
 `requires io.vertx.mutiny` themselves; Guiced Vert.x does not require those bindings.
