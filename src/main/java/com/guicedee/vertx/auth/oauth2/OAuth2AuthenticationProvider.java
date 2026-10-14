@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.oauth2;
 
+import com.guicedee.client.utils.ClassLoading;
+
 import com.guicedee.client.Environment;
 import com.guicedee.client.IGuiceContext;
 import com.guicedee.vertx.auth.IGuicedAuthenticationProvider;
@@ -262,7 +264,7 @@ public class OAuth2AuthenticationProvider implements IGuicedAuthenticationProvid
         var annotatedClasses = scanResult.getClassesWithAnnotation(OAuth2Options.class);
         for (var ci : annotatedClasses)
         {
-            var ann = ci.loadClass().getAnnotation(OAuth2Options.class);
+            var ann = ClassLoading.loadClass(ci).getAnnotation(OAuth2Options.class);
             if (ann != null)
             {
                 log.debug("Found @OAuth2Options on class: {}", ci.getName());

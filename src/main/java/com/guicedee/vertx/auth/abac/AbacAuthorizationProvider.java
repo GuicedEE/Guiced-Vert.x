@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.abac;
 
+import com.guicedee.client.utils.ClassLoading;
+
 import com.guicedee.client.Environment;
 import com.guicedee.client.IGuiceContext;
 import com.guicedee.vertx.auth.IGuicedAuthorizationProvider;
@@ -167,7 +169,7 @@ public class AbacAuthorizationProvider implements IGuicedAuthorizationProvider
         var annotatedClasses = scanResult.getClassesWithAnnotation(AbacOptions.class);
         for (var ci : annotatedClasses)
         {
-            var ann = ci.loadClass().getAnnotation(AbacOptions.class);
+            var ann = ClassLoading.loadClass(ci).getAnnotation(AbacOptions.class);
             if (ann != null)
             {
                 log.debug("Found @AbacOptions on class: {}", ci.getName());

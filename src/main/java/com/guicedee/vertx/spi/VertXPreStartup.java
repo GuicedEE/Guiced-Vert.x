@@ -1,5 +1,7 @@
 package com.guicedee.vertx.spi;
 
+import com.guicedee.client.utils.ClassLoading;
+
 import com.guicedee.client.IGuiceContext;
 import com.guicedee.client.services.lifecycle.IGuicePreDestroy;
 import com.guicedee.client.services.lifecycle.IGuicePreStartup;
@@ -85,7 +87,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             throw new RuntimeException("Only one VertX class may be defined");
         }
         if (vertxStaticConfig.size() == 1) {
-            var clazz = vertxStaticConfig.getFirst().loadClass();
+            var clazz = ClassLoading.loadClass(vertxStaticConfig.getFirst());
             VertX annotation = clazz.getDeclaredAnnotation(VertX.class);
             if (annotation == null) {
                 throw new RuntimeException("Could not read VertX annotation from class");
@@ -208,7 +210,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     private void processMetricsOptions(VertxOptions options) {
         var metricsConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(MetricsOptions.class);
         if (metricsConfig.size() == 1) {
-            var clazz = metricsConfig.getFirst().loadClass();
+            var clazz = ClassLoading.loadClass(metricsConfig.getFirst());
             MetricsOptions metricsAnnotation = clazz.getDeclaredAnnotation(MetricsOptions.class);
             if (metricsAnnotation != null) {
                 MetricsOptions wrappedMetrics = new MetricsOptions() {
@@ -231,7 +233,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     private void processFileSystemOptions(VertxOptions options) {
         var fileSystemConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(FileSystemOptions.class);
         if (fileSystemConfig.size() == 1) {
-            var clazz = fileSystemConfig.getFirst().loadClass();
+            var clazz = ClassLoading.loadClass(fileSystemConfig.getFirst());
             FileSystemOptions fileSystemAnnotation = clazz.getDeclaredAnnotation(FileSystemOptions.class);
             if (fileSystemAnnotation != null) {
                 FileSystemOptions wrappedFS = new FileSystemOptions() {
@@ -268,7 +270,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     private void processEventBusOptions(VertxOptions options) {
         var eventBusConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(EventBusOptions.class);
         if (eventBusConfig.size() == 1) {
-            var clazz = eventBusConfig.getFirst().loadClass();
+            var clazz = ClassLoading.loadClass(eventBusConfig.getFirst());
             EventBusOptions eventBusAnnotation = clazz.getDeclaredAnnotation(EventBusOptions.class);
             if (eventBusAnnotation != null) {
                 EventBusOptions wrappedEB = new EventBusOptions() {
@@ -359,7 +361,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     private void processAddressResolverOptions(VertxOptions options) {
         var addressResolverConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(AddressResolverOptions.class);
         if (addressResolverConfig.size() == 1) {
-            var clazz = addressResolverConfig.getFirst().loadClass();
+            var clazz = ClassLoading.loadClass(addressResolverConfig.getFirst());
             AddressResolverOptions addressResolverAnnotation = clazz.getDeclaredAnnotation(AddressResolverOptions.class);
             if (addressResolverAnnotation != null) {
                 AddressResolverOptions wrappedAR = new AddressResolverOptions() {

@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.properties;
 
+import com.guicedee.client.utils.ClassLoading;
+
 import com.guicedee.client.IGuiceContext;
 import com.guicedee.vertx.auth.IGuicedAuthorizationProvider;
 import com.guicedee.vertx.spi.VertXPreStartup;
@@ -68,7 +70,7 @@ public class PropertyFileAuthorizationProvider implements IGuicedAuthorizationPr
         var annotatedClasses = scanResult.getClassesWithAnnotation(PropertyFileAuthOptions.class);
         for (var ci : annotatedClasses)
         {
-            var ann = ci.loadClass().getAnnotation(PropertyFileAuthOptions.class);
+            var ann = ClassLoading.loadClass(ci).getAnnotation(PropertyFileAuthOptions.class);
             if (ann != null) return ann;
         }
 

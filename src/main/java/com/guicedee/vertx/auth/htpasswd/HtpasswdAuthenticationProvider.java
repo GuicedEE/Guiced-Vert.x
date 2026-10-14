@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.htpasswd;
 
+import com.guicedee.client.utils.ClassLoading;
+
 import com.guicedee.client.Environment;
 import com.guicedee.client.IGuiceContext;
 import com.guicedee.vertx.auth.IGuicedAuthenticationProvider;
@@ -73,7 +75,7 @@ public class HtpasswdAuthenticationProvider implements IGuicedAuthenticationProv
         var annotatedClasses = scanResult.getClassesWithAnnotation(HtpasswdAuthOptions.class);
         for (var ci : annotatedClasses)
         {
-            var ann = ci.loadClass().getAnnotation(HtpasswdAuthOptions.class);
+            var ann = ClassLoading.loadClass(ci).getAnnotation(HtpasswdAuthOptions.class);
             if (ann != null) return ann;
         }
 

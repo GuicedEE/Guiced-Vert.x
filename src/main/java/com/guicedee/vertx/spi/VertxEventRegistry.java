@@ -1,5 +1,7 @@
 package com.guicedee.vertx.spi;
 
+import com.guicedee.client.utils.ClassLoading;
+
 import com.google.inject.Key;
 import com.google.inject.TypeLiteral;
 import com.google.inject.name.Names;
@@ -236,7 +238,7 @@ public class VertxEventRegistry {
 
         for (var consumerClassInfo : consumerClasses) {
             try {
-                Class consumerClass = consumerClassInfo.loadClass();
+                Class consumerClass = ClassLoading.loadClass(consumerClassInfo);
                 VertxEventDefinition eventDefinition = wrapEventDefinition((VertxEventDefinition) consumerClass.getAnnotation(VertxEventDefinition.class));
                 String address = eventDefinition.value();
 
@@ -281,7 +283,7 @@ public class VertxEventRegistry {
 
         for (var classInfo : methodConsumerClasses) {
             try {
-                Class<?> clazz = classInfo.loadClass();
+                Class<?> clazz = ClassLoading.loadClass(classInfo);
                 for (Method method : clazz.getDeclaredMethods()) {
                     VertxEventDefinition eventDefinition = wrapEventDefinition(method.getAnnotation(VertxEventDefinition.class));
                     if (eventDefinition != null) {
@@ -325,7 +327,7 @@ public class VertxEventRegistry {
 
         for (var classInfo : publisherClasses) {
             try {
-                Class<?> clazz = classInfo.loadClass();
+                Class<?> clazz = ClassLoading.loadClass(classInfo);
                 for (Field field : clazz.getDeclaredFields()) {
                     // Check if field type is VertxEventPublisher
                     if (field.getType().equals(VertxEventPublisher.class)) {

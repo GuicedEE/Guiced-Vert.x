@@ -1,5 +1,7 @@
 package com.guicedee.vertx.grpc;
 
+import com.guicedee.client.utils.ClassLoading;
+
 import com.guicedee.client.Environment;
 import com.guicedee.client.IGuiceContext;
 import com.guicedee.client.services.lifecycle.IGuicePreStartup;
@@ -42,13 +44,13 @@ public class GrpcPreStartup implements IGuicePreStartup<GrpcPreStartup> {
         // Scan classes for @GrpcOptions
         ClassInfoList annotatedClasses = scanResult.getClassesWithAnnotation(GrpcOptions.class.getName());
         for (ClassInfo classInfo : annotatedClasses) {
-            processAnnotations(classInfo.loadClass().getAnnotationsByType(GrpcOptions.class));
+            processAnnotations(ClassLoading.loadClass(classInfo).getAnnotationsByType(GrpcOptions.class));
         }
 
         // Scan package-info classes for @GrpcOptions
         ClassInfoList packageInfoClasses = scanResult.getClassesWithAnnotation(GrpcOptionsContainer.class.getName());
         for (ClassInfo classInfo : packageInfoClasses) {
-            processAnnotations(classInfo.loadClass().getAnnotationsByType(GrpcOptions.class));
+            processAnnotations(ClassLoading.loadClass(classInfo).getAnnotationsByType(GrpcOptions.class));
         }
 
         if (!discoveredConnections.isEmpty()) {

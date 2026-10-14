@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth;
 
+import com.guicedee.client.utils.ClassLoading;
+
 import com.guicedee.client.Environment;
 import com.guicedee.client.IGuiceContext;
 import com.guicedee.client.services.lifecycle.IGuicePreStartup;
@@ -94,11 +96,11 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
         // Get the service set via standard GuicedEE loading (handles ServiceLoader + ClassGraph)
         // Then dynamically add ClassGraph-discovered providers for optional auth modules
         // that aren't declared in module-info provides (to avoid ClassNotFoundException with requires static)
-        for (ClassInfo classInfo : scanResult.getClassesImplementing(IGuicedAuthenticationProvider.class))
+        for (ClassInfo classInfo : scanResult.getAllClassesImplementing(IGuicedAuthenticationProvider.class))
         {
             try
             {
-                Class<? extends IGuicedAuthenticationProvider> implClass = (Class<? extends IGuicedAuthenticationProvider>) classInfo.loadClass();
+                Class<? extends IGuicedAuthenticationProvider> implClass = (Class<? extends IGuicedAuthenticationProvider>) ClassLoading.loadClass(classInfo);
                 if (implClass.isInterface() || java.lang.reflect.Modifier.isAbstract(implClass.getModifiers()))
                 {
                     continue;
@@ -132,11 +134,11 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
         }
 
         // Same pattern for authorization providers
-        for (ClassInfo classInfo : scanResult.getClassesImplementing(IGuicedAuthorizationProvider.class))
+        for (ClassInfo classInfo : scanResult.getAllClassesImplementing(IGuicedAuthorizationProvider.class))
         {
             try
             {
-                Class<? extends IGuicedAuthorizationProvider> implClass = (Class<? extends IGuicedAuthorizationProvider>) classInfo.loadClass();
+                Class<? extends IGuicedAuthorizationProvider> implClass = (Class<? extends IGuicedAuthorizationProvider>) ClassLoading.loadClass(classInfo);
                 if (implClass.isInterface() || java.lang.reflect.Modifier.isAbstract(implClass.getModifiers()))
                 {
                     continue;
@@ -216,7 +218,7 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
         ClassInfoList annotatedClasses = scanResult.getClassesWithAnnotation(AuthOptions.class);
         for (var ci : annotatedClasses)
         {
-            var ann = ci.loadClass().getAnnotation(AuthOptions.class);
+            var ann = ClassLoading.loadClass(ci).getAnnotation(AuthOptions.class);
             if (ann != null)
             {
                 authOptions = wrapAuthOptions(ann);

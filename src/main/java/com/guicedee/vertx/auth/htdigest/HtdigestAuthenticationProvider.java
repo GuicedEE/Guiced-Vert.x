@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.htdigest;
 
+import com.guicedee.client.utils.ClassLoading;
+
 import com.guicedee.client.Environment;
 import com.guicedee.client.IGuiceContext;
 import com.guicedee.vertx.auth.IGuicedAuthenticationProvider;
@@ -92,7 +94,7 @@ public class HtdigestAuthenticationProvider implements IGuicedAuthenticationProv
         var annotatedClasses = scanResult.getClassesWithAnnotation(HtdigestAuthOptions.class);
         for (var ci : annotatedClasses)
         {
-            var ann = ci.loadClass().getAnnotation(HtdigestAuthOptions.class);
+            var ann = ClassLoading.loadClass(ci).getAnnotation(HtdigestAuthOptions.class);
             if (ann != null) return ann;
         }
 

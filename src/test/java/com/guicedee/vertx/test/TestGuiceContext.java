@@ -114,8 +114,10 @@ public class TestGuiceContext implements IGuiceContext {
         if (scanResult == null) {
             synchronized (this) {
                 if (scanResult == null) {
-                    ClassGraph classGraph = new ClassGraph()
-                            .enableAllInfo()
+                    ClassGraph classGraph = new ClassGraph().enableClasspath().enableNonSystemModules()
+                            .enableClassInfo().enableFieldInfo().enableMethodInfo().enableAnnotationInfo()
+                            .enableStaticFinalFieldConstantInitializerValues()
+                            .ignoreClassVisibility().ignoreFieldVisibility().ignoreMethodVisibility()
                             .acceptPackages("com.guicedee");
                     scanResult = classGraph.scan();
                 }

@@ -1,5 +1,7 @@
 package com.guicedee.vertx.spi;
 
+import com.guicedee.client.utils.ClassLoading;
+
 import com.google.common.base.Strings;
 import com.guicedee.client.IGuiceContext;
 import io.github.classgraph.AnnotationInfo;
@@ -73,7 +75,7 @@ public class VerticleBuilder
         Map<String, Verticle> packageLevelVerticles = new LinkedHashMap<>();
         for (PackageInfo packageInfo : scanResult.getPackageInfo())
         {
-            AnnotationInfo annotationInfo = packageInfo.getAnnotationInfo(Verticle.class.getName());
+            AnnotationInfo annotationInfo = packageInfo.getDirectAnnotationInfo(Verticle.class.getName());
             if (annotationInfo != null)
             {
                 Verticle reconstructed = reconstructVerticleAnnotation(annotationInfo);
@@ -127,7 +129,7 @@ public class VerticleBuilder
 
             for (ClassInfo classInfo : foundVerticleClasses)
             {
-                var annotation = classInfo.loadClass().getDeclaredAnnotation(Verticle.class);
+                var annotation = ClassLoading.loadClass(classInfo).getDeclaredAnnotation(Verticle.class);
                 log.debug("Found Verticle (class-level): {} - {}", classInfo.getPackageName(), classInfo.getSimpleName());
                 mergedVerticles.put(classInfo.getPackageName(), annotation);
             }

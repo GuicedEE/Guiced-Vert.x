@@ -1,5 +1,7 @@
 package com.guicedee.vertx.redis;
 
+import com.guicedee.client.utils.ClassLoading;
+
 import com.guicedee.client.Environment;
 import com.guicedee.client.IGuiceContext;
 import com.guicedee.client.services.lifecycle.IGuicePreStartup;
@@ -42,13 +44,13 @@ public class RedisPreStartup implements IGuicePreStartup<RedisPreStartup> {
         // Scan classes for @RedisOptions
         ClassInfoList annotatedClasses = scanResult.getClassesWithAnnotation(RedisOptions.class.getName());
         for (ClassInfo classInfo : annotatedClasses) {
-            processAnnotations(classInfo.loadClass().getAnnotationsByType(RedisOptions.class));
+            processAnnotations(ClassLoading.loadClass(classInfo).getAnnotationsByType(RedisOptions.class));
         }
 
         // Scan package-info classes for @RedisOptions
         ClassInfoList packageInfoClasses = scanResult.getClassesWithAnnotation(RedisOptionsContainer.class.getName());
         for (ClassInfo classInfo : packageInfoClasses) {
-            processAnnotations(classInfo.loadClass().getAnnotationsByType(RedisOptions.class));
+            processAnnotations(ClassLoading.loadClass(classInfo).getAnnotationsByType(RedisOptions.class));
         }
 
         if (!discoveredConnections.isEmpty()) {

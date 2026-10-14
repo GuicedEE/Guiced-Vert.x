@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.otp;
 
+import com.guicedee.client.utils.ClassLoading;
+
 import com.guicedee.client.Environment;
 import com.guicedee.client.IGuiceContext;
 import com.guicedee.vertx.auth.IGuicedAuthenticationProvider;
@@ -140,7 +142,7 @@ public class OtpAuthenticationProvider implements IGuicedAuthenticationProvider
         var annotatedClasses = scanResult.getClassesWithAnnotation(OtpAuthOptions.class);
         for (var ci : annotatedClasses)
         {
-            var ann = ci.loadClass().getAnnotation(OtpAuthOptions.class);
+            var ann = ClassLoading.loadClass(ci).getAnnotation(OtpAuthOptions.class);
             if (ann != null)
             {
                 log.debug("Found @OtpAuthOptions on class: {}", ci.getName());

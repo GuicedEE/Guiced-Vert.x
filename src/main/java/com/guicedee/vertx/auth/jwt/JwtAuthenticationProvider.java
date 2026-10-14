@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.jwt;
 
+import com.guicedee.client.utils.ClassLoading;
+
 import com.guicedee.client.Environment;
 import com.guicedee.client.IGuiceContext;
 import com.guicedee.vertx.auth.IGuicedAuthenticationProvider;
@@ -228,7 +230,7 @@ public class JwtAuthenticationProvider implements IGuicedAuthenticationProvider
         var annotatedClasses = scanResult.getClassesWithAnnotation(JwtAuthOptions.class);
         for (var ci : annotatedClasses)
         {
-            var ann = ci.loadClass().getAnnotation(JwtAuthOptions.class);
+            var ann = ClassLoading.loadClass(ci).getAnnotation(JwtAuthOptions.class);
             if (ann != null)
             {
                 log.debug("Found @JwtAuthOptions on class: {}", ci.getName());

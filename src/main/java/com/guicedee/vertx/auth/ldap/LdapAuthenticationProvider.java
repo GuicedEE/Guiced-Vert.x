@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.ldap;
 
+import com.guicedee.client.utils.ClassLoading;
+
 import com.guicedee.client.Environment;
 import com.guicedee.client.IGuiceContext;
 import com.guicedee.vertx.auth.IGuicedAuthenticationProvider;
@@ -85,7 +87,7 @@ public class LdapAuthenticationProvider implements IGuicedAuthenticationProvider
         var annotatedClasses = scanResult.getClassesWithAnnotation(LdapAuthOptions.class);
         for (var ci : annotatedClasses)
         {
-            var ann = ci.loadClass().getAnnotation(LdapAuthOptions.class);
+            var ann = ClassLoading.loadClass(ci).getAnnotation(LdapAuthOptions.class);
             if (ann != null)
             {
                 log.debug("Found @LdapAuthOptions on class: {}", ci.getName());
