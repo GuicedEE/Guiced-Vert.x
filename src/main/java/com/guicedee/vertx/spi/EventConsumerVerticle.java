@@ -65,7 +65,7 @@ public class EventConsumerVerticle extends AbstractVerticle {
             });
 
             log.debug("Registered consumer on address '{}' in verticle {} (localOnly={})", address, this.getClass().getSimpleName(), localOnly);
-            startPromise.tryComplete();
+            consumer.completion().onComplete(startPromise);
         } catch (Throwable t) {
             log.error("Failed to start EventConsumerVerticle for {}", address, t);
             startPromise.tryFail(t);

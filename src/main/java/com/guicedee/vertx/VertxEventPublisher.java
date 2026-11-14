@@ -1,7 +1,5 @@
 package com.guicedee.vertx;
 
-import tools.jackson.databind.annotation.JsonSerialize;
-import com.guicedee.modules.services.jsonrepresentation.IJsonRepresentation;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -19,7 +17,6 @@ import java.lang.reflect.Type;
  *
  * @param <T> The type of message to publish
  */
-@JsonSerialize(as = Void.class)
 @EqualsAndHashCode(of = {"address"})
 @Log4j2
 public class VertxEventPublisher<T> {

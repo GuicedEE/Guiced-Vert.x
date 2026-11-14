@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.oauth2;
 
+import com.guicedee.client.utils.Discovery;
+
 import com.guicedee.client.utils.ClassLoading;
 
 import com.guicedee.client.Environment;
@@ -56,7 +58,7 @@ public class OAuth2AuthenticationProvider implements IGuicedAuthenticationProvid
     @Override
     public AuthenticationProvider getAuthenticationProvider()
     {
-        ScanResult scanResult = IGuiceContext.instance().getScanResult();
+        ScanResult scanResult = Discovery.scanResult();
         oauth2Options = discoverOAuth2Options(scanResult);
 
         if (oauth2Options == null)
@@ -260,6 +262,9 @@ public class OAuth2AuthenticationProvider implements IGuicedAuthenticationProvid
 
     private OAuth2Options discoverOAuth2Options(ScanResult scanResult)
     {
+        var registered = Discovery.firstRegisteredAnnotation(OAuth2Options.class);
+        if (registered.isPresent()) return registered.get();
+        if (scanResult == null) return null;
         // Check annotated classes
         var annotatedClasses = scanResult.getClassesWithAnnotation(OAuth2Options.class);
         for (var ci : annotatedClasses)

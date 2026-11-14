@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.abac;
 
+import com.guicedee.client.utils.Discovery;
+
 import com.guicedee.client.utils.ClassLoading;
 
 import com.guicedee.client.Environment;
@@ -48,7 +50,7 @@ public class AbacAuthorizationProvider implements IGuicedAuthorizationProvider
     @Override
     public AuthorizationProvider getAuthorizationProvider()
     {
-        ScanResult scanResult = IGuiceContext.instance().getScanResult();
+        ScanResult scanResult = Discovery.scanResult();
         abacOptions = discoverAbacOptions(scanResult);
 
         if (abacOptions == null)
@@ -166,6 +168,9 @@ public class AbacAuthorizationProvider implements IGuicedAuthorizationProvider
 
     private AbacOptions discoverAbacOptions(ScanResult scanResult)
     {
+        var registered = Discovery.firstRegisteredAnnotation(AbacOptions.class);
+        if (registered.isPresent()) return registered.get();
+        if (scanResult == null) return null;
         var annotatedClasses = scanResult.getClassesWithAnnotation(AbacOptions.class);
         for (var ci : annotatedClasses)
         {

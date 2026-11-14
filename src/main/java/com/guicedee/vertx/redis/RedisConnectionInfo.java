@@ -1,6 +1,5 @@
 package com.guicedee.vertx.redis;
 
-import com.fasterxml.jackson.annotation.*;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
@@ -10,9 +9,6 @@ import lombok.experimental.Accessors;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.ANY;
-import static com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE;
-import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 
 /**
  * Configuration holder for a Vert.x Redis client connection.
@@ -27,9 +23,6 @@ import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
  * REDIS_{NAME}_TLS, REDIS_{NAME}_PROTOCOL
  * </pre>
  */
-@JsonAutoDetect(fieldVisibility = ANY, getterVisibility = NONE, setterVisibility = NONE)
-@JsonInclude(NON_NULL)
-@JsonIgnoreProperties(ignoreUnknown = true)
 @ToString
 @EqualsAndHashCode(of = {"name"})
 @Getter

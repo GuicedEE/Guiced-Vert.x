@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth;
 
+import com.guicedee.client.utils.Discovery;
+
 import com.guicedee.client.utils.ClassLoading;
 
 import com.guicedee.client.Environment;
@@ -16,7 +18,6 @@ import io.vertx.ext.auth.authorization.AuthorizationProvider;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 
-import io.github.classgraph.ClassInfo;
 
 import java.util.*;
 
@@ -67,7 +68,7 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
     @Override
     public List<Future<Boolean>> onStartup()
     {
-        ScanResult scanResult = IGuiceContext.instance().getScanResult();
+        ScanResult scanResult = Discovery.scanResult();
         discoverAuthOptions(scanResult);
 
         // Load any explicitly-registered (ServiceLoader / module-info provides) custom providers up
@@ -96,11 +97,11 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
         // Get the service set via standard GuicedEE loading (handles ServiceLoader + ClassGraph)
         // Then dynamically add ClassGraph-discovered providers for optional auth modules
         // that aren't declared in module-info provides (to avoid ClassNotFoundException with requires static)
-        for (ClassInfo classInfo : scanResult.getAllClassesImplementing(IGuicedAuthenticationProvider.class))
+        for (Class<?> classInfo : Discovery.implementations(IGuicedAuthenticationProvider.class))
         {
             try
             {
-                Class<? extends IGuicedAuthenticationProvider> implClass = (Class<? extends IGuicedAuthenticationProvider>) ClassLoading.loadClass(classInfo);
+                Class<? extends IGuicedAuthenticationProvider> implClass = (Class<? extends IGuicedAuthenticationProvider>) classInfo;
                 if (implClass.isInterface() || java.lang.reflect.Modifier.isAbstract(implClass.getModifiers()))
                 {
                     continue;
@@ -134,11 +135,11 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
         }
 
         // Same pattern for authorization providers
-        for (ClassInfo classInfo : scanResult.getAllClassesImplementing(IGuicedAuthorizationProvider.class))
+        for (Class<?> classInfo : Discovery.implementations(IGuicedAuthorizationProvider.class))
         {
             try
             {
-                Class<? extends IGuicedAuthorizationProvider> implClass = (Class<? extends IGuicedAuthorizationProvider>) ClassLoading.loadClass(classInfo);
+                Class<? extends IGuicedAuthorizationProvider> implClass = (Class<? extends IGuicedAuthorizationProvider>) classInfo;
                 if (implClass.isInterface() || java.lang.reflect.Modifier.isAbstract(implClass.getModifiers()))
                 {
                     continue;
@@ -202,6 +203,8 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
      */
     private boolean hasAnyAuthAnnotation(ScanResult scanResult)
     {
+        if (AUTH_OPTION_ANNOTATIONS.stream().anyMatch(Discovery::hasRegisteredAnnotation)) return true;
+        if (scanResult == null) return false;
         for (String annotationName : AUTH_OPTION_ANNOTATIONS)
         {
             if (!scanResult.getClassesWithAnnotation(annotationName).isEmpty())
@@ -214,6 +217,9 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
 
     private void discoverAuthOptions(ScanResult scanResult)
     {
+        var registered = Discovery.firstRegisteredAnnotation(AuthOptions.class);
+        if (registered.isPresent()) { authOptions = wrapAuthOptions(registered.get()); return; }
+        if (scanResult == null) return;
         // Check classes
         ClassInfoList annotatedClasses = scanResult.getClassesWithAnnotation(AuthOptions.class);
         for (var ci : annotatedClasses)

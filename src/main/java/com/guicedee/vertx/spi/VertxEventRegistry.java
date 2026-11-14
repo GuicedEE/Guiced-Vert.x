@@ -1,6 +1,6 @@
 package com.guicedee.vertx.spi;
 
-import com.guicedee.client.utils.ClassLoading;
+import com.guicedee.client.utils.Discovery;
 
 import com.google.inject.Key;
 import com.google.inject.TypeLiteral;
@@ -9,7 +9,7 @@ import com.guicedee.client.IGuiceContext;
 import com.guicedee.client.scopes.CallScoper;
 import com.guicedee.client.scopes.CallScopeProperties;
 import com.guicedee.client.scopes.CallScopeSource;
-import com.guicedee.modules.services.jsonrepresentation.IJsonRepresentation;
+import com.guicedee.client.utils.JsonRepresentation;
 import com.guicedee.vertx.VertxEventDefinition;
 import com.guicedee.vertx.VertxEventOptions;
 import com.guicedee.vertx.VertxEventPublisher;
@@ -228,17 +228,16 @@ public class VertxEventRegistry {
         log.trace("Scanning for Vertx event consumers and publishers");
 
         // Scan for classes with @VertxEventDefinition annotation
-        var consumerClasses = IGuiceContext.instance().getScanResult()
-                .getClassesWithAnnotation(VertxEventDefinition.class)
+        var consumerClasses = Discovery.annotatedClasses(VertxEventDefinition.class)
                 .stream()
-                .filter(classInfo -> !classInfo.isInterfaceOrAnnotation() && !classInfo.isAbstract())
+                .filter(Discovery::isConcrete)
                 .toList();
 
         log.trace("📋 Found {} consumer classes with @VertxEventDefinition", consumerClasses.size());
 
         for (var consumerClassInfo : consumerClasses) {
             try {
-                Class consumerClass = ClassLoading.loadClass(consumerClassInfo);
+                Class consumerClass = consumerClassInfo;
                 VertxEventDefinition eventDefinition = wrapEventDefinition((VertxEventDefinition) consumerClass.getAnnotation(VertxEventDefinition.class));
                 String address = eventDefinition.value();
 
@@ -275,15 +274,13 @@ public class VertxEventRegistry {
         }
 
         // Scan for methods annotated with @VertxEventDefinition
-        var methodConsumerClasses = IGuiceContext.instance().getScanResult()
-                .getClassesWithMethodAnnotation(VertxEventDefinition.class)
-                .filter(classInfo -> !classInfo.isInterfaceOrAnnotation() && !classInfo.isAbstract())
-                .stream()
+        var methodConsumerClasses = Discovery.classesWithMethodAnnotation(VertxEventDefinition.class)
+                .stream().filter(Discovery::isConcrete)
                 .toList();
 
         for (var classInfo : methodConsumerClasses) {
             try {
-                Class<?> clazz = ClassLoading.loadClass(classInfo);
+                Class<?> clazz = classInfo;
                 for (Method method : clazz.getDeclaredMethods()) {
                     VertxEventDefinition eventDefinition = wrapEventDefinition(method.getAnnotation(VertxEventDefinition.class));
                     if (eventDefinition != null) {
@@ -318,16 +315,13 @@ public class VertxEventRegistry {
         }
 
         // Scan for classes with fields annotated with @VertxEventDefinition or @Named
-        var publisherClasses = IGuiceContext.instance().getScanResult()
-                .getAllClasses()
-                .stream()
-                .filter(info -> info.hasDeclaredFieldAnnotation(VertxEventDefinition.class) ||
-                        info.hasDeclaredFieldAnnotation(com.google.inject.name.Named.class))
-                .toList();
+        var publisherClasses = new java.util.LinkedHashSet<Class<?>>();
+        publisherClasses.addAll(Discovery.classesWithFieldAnnotation(VertxEventDefinition.class));
+        publisherClasses.addAll(Discovery.classesWithFieldAnnotation(com.google.inject.name.Named.class));
 
         for (var classInfo : publisherClasses) {
             try {
-                Class<?> clazz = ClassLoading.loadClass(classInfo);
+                Class<?> clazz = classInfo;
                 for (Field field : clazz.getDeclaredFields()) {
                     // Check if field type is VertxEventPublisher
                     if (field.getType().equals(VertxEventPublisher.class)) {
@@ -819,8 +813,7 @@ public class VertxEventRegistry {
                                 && !isDefaultVertxType(bodyType)) {
                             try {
                                 JsonObject jsonObject = (JsonObject) body;
-                                Object converted = IJsonRepresentation.getObjectMapper()
-                                        .readValue(jsonObject.encode(), bodyType);
+                                Object converted = JsonRepresentation.require().read(jsonObject.encode(), bodyType);
                                 log.trace("Converted Message body JsonObject to {}", bodyType.getName());
                                 // Wrap the original message with the converted body
                                 resolvedMessage = new MessageWrapper<>(message, converted);
@@ -838,7 +831,7 @@ public class VertxEventRegistry {
                 if (body instanceof JsonObject &&
                         !isDefaultVertxType(paramType)) {
                     try {
-                        // Convert JsonObject to the expected parameter type using Jackson
+                        // Convert JsonObject to the expected parameter type using the JSON representation
                         JsonObject jsonObject = (JsonObject) body;
 
                         // Check if we have a stored reference type for this address
@@ -847,13 +840,10 @@ public class VertxEventRegistry {
                             // Use the stored reference type for deserialization
                             log.trace("Using stored reference type {} for deserialization at address: {}",
                                     referenceType.getTypeName(), address);
-                            params[i] = IJsonRepresentation.getObjectMapper()
-                                    .readValue(jsonObject.encode(),
-                                            IJsonRepresentation.getObjectMapper().getTypeFactory().constructType(referenceType));
+                            params[i] = JsonRepresentation.require().read(jsonObject.encode(), referenceType);
                         } else {
                             // Fall back to using the parameter's class type
-                            params[i] = IJsonRepresentation.getObjectMapper()
-                                    .readValue(jsonObject.encode(), paramType);
+                            params[i] = JsonRepresentation.require().read(jsonObject.encode(), paramType);
                         }
                         log.trace("Converted JsonObject to {}: {}", paramType.getName(), params[i]);
                     } catch (Exception e) {
@@ -863,7 +853,7 @@ public class VertxEventRegistry {
                 } else if (body instanceof JsonArray &&
                         !isDefaultVertxType(paramType)) {
                     try {
-                        // Convert JsonArray to the expected (generic) parameter type using Jackson.
+                        // Convert JsonArray to the expected (generic) parameter type using the JSON representation.
                         JsonArray jsonArray = (JsonArray) body;
 
                         // Prefer the stored reference type (e.g. List<Dto>) so element types are
@@ -872,9 +862,7 @@ public class VertxEventRegistry {
                         Type targetType = referenceType != null ? referenceType : param.getParameterizedType();
                         log.trace("Using type {} to deserialize JsonArray at address: {}",
                                 targetType.getTypeName(), address);
-                        params[i] = IJsonRepresentation.getObjectMapper()
-                                .readValue(jsonArray.encode(),
-                                        IJsonRepresentation.getObjectMapper().getTypeFactory().constructType(targetType));
+                        params[i] = JsonRepresentation.require().read(jsonArray.encode(), targetType);
                         log.trace("Converted JsonArray to {}: {}", targetType.getTypeName(), params[i]);
                     } catch (Exception e) {
                         log.error("Error converting JsonArray to " + paramType.getName(), e);

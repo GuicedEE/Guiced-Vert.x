@@ -13,6 +13,9 @@ import io.vertx.core.Vertx;
  * Implementations can perform setup using the provided Vertx instance,
  * verticle, and assigned package context, then complete or fail the
  * {@link Promise} to signal startup readiness.
+ * Each implementation must complete its own promise after all asynchronous work,
+ * or fail it on error. Synchronous implementations must complete it before returning.
+ * Returning from this method alone does not signal readiness.
  */
 public interface VerticleStartup<J extends VerticleStartup<J>> extends IDefaultService<J>
 {

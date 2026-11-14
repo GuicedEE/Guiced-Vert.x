@@ -3,6 +3,7 @@ open module guiced.vertx.test {
 
     requires com.guicedee.client;
     requires com.guicedee.vertx;
+    requires com.guicedee.jsonrepresentation;
 
     requires io.vertx.core;
     requires io.vertx.auth.common;
@@ -26,6 +27,7 @@ open module guiced.vertx.test {
     exports com.guicedee.vertx.spi.test;
 
     uses io.vertx.core.spi.JsonFactory;
+    provides com.guicedee.vertx.spi.VertxConfigurator with com.guicedee.vertx.test.EnvironmentOptionsObserver;
     uses com.guicedee.client.services.lifecycle.IGuicePreDestroy;
 
     provides com.guicedee.client.services.IGuiceProvider

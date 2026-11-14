@@ -1,13 +1,10 @@
 package com.guicedee.vertx.grpc;
 
-import com.guicedee.client.utils.ClassLoading;
+import com.guicedee.client.utils.Discovery;
+
 
 import com.guicedee.client.Environment;
-import com.guicedee.client.IGuiceContext;
 import com.guicedee.client.services.lifecycle.IGuicePreStartup;
-import io.github.classgraph.ClassInfo;
-import io.github.classgraph.ClassInfoList;
-import io.github.classgraph.ScanResult;
 import io.vertx.core.Future;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -35,23 +32,8 @@ public class GrpcPreStartup implements IGuicePreStartup<GrpcPreStartup> {
     public List<Future<Boolean>> onStartup() {
         discoveredConnections.clear();
 
-        ScanResult scanResult = IGuiceContext.instance().getScanResult();
-        if (scanResult == null) {
-            log.warn("⚠️ No scan result available — skipping gRPC annotation discovery");
-            return List.of();
-        }
-
-        // Scan classes for @GrpcOptions
-        ClassInfoList annotatedClasses = scanResult.getClassesWithAnnotation(GrpcOptions.class.getName());
-        for (ClassInfo classInfo : annotatedClasses) {
-            processAnnotations(ClassLoading.loadClass(classInfo).getAnnotationsByType(GrpcOptions.class));
-        }
-
-        // Scan package-info classes for @GrpcOptions
-        ClassInfoList packageInfoClasses = scanResult.getClassesWithAnnotation(GrpcOptionsContainer.class.getName());
-        for (ClassInfo classInfo : packageInfoClasses) {
-            processAnnotations(ClassLoading.loadClass(classInfo).getAnnotationsByType(GrpcOptions.class));
-        }
+        for (var annotation : Discovery.annotations(GrpcOptions.class))
+            processAnnotations(new GrpcOptions[]{annotation});
 
         if (!discoveredConnections.isEmpty()) {
             log.info("📡 Discovered {} gRPC configuration(s) via @GrpcOptions annotations", discoveredConnections.size());

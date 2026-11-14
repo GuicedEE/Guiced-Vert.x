@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.htpasswd;
 
+import com.guicedee.client.utils.Discovery;
+
 import com.guicedee.client.utils.ClassLoading;
 
 import com.guicedee.client.Environment;
@@ -36,7 +38,7 @@ public class HtpasswdAuthenticationProvider implements IGuicedAuthenticationProv
     @Override
     public AuthenticationProvider getAuthenticationProvider()
     {
-        ScanResult scanResult = IGuiceContext.instance().getScanResult();
+        ScanResult scanResult = Discovery.scanResult();
         htpasswdAuthOptions = discoverOptions(scanResult);
 
         if (htpasswdAuthOptions == null)
@@ -72,6 +74,9 @@ public class HtpasswdAuthenticationProvider implements IGuicedAuthenticationProv
 
     private HtpasswdAuthOptions discoverOptions(ScanResult scanResult)
     {
+        var registered = Discovery.firstRegisteredAnnotation(HtpasswdAuthOptions.class);
+        if (registered.isPresent()) return registered.get();
+        if (scanResult == null) return null;
         var annotatedClasses = scanResult.getClassesWithAnnotation(HtpasswdAuthOptions.class);
         for (var ci : annotatedClasses)
         {

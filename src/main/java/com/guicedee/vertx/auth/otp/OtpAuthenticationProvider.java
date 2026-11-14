@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.otp;
 
+import com.guicedee.client.utils.Discovery;
+
 import com.guicedee.client.utils.ClassLoading;
 
 import com.guicedee.client.Environment;
@@ -53,7 +55,7 @@ public class OtpAuthenticationProvider implements IGuicedAuthenticationProvider
     @Override
     public AuthenticationProvider getAuthenticationProvider()
     {
-        ScanResult scanResult = IGuiceContext.instance().getScanResult();
+        ScanResult scanResult = Discovery.scanResult();
         otpAuthOptions = discoverOtpAuthOptions(scanResult);
 
         if (otpAuthOptions == null)
@@ -139,6 +141,9 @@ public class OtpAuthenticationProvider implements IGuicedAuthenticationProvider
 
     private OtpAuthOptions discoverOtpAuthOptions(ScanResult scanResult)
     {
+        var registered = Discovery.firstRegisteredAnnotation(OtpAuthOptions.class);
+        if (registered.isPresent()) return registered.get();
+        if (scanResult == null) return null;
         var annotatedClasses = scanResult.getClassesWithAnnotation(OtpAuthOptions.class);
         for (var ci : annotatedClasses)
         {

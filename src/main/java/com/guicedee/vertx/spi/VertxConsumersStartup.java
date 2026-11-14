@@ -62,22 +62,21 @@ public class VertxConsumersStartup implements VerticleStartup<VertxConsumersStar
                             targetMethod = targetClass.getMethod("consume", Message.class);
                         } catch (NoSuchMethodException nsme) {
                             log.error("No consume(Message) method found for class {} at address {}", targetClass.getName(), address);
-                            return;
+                            throw new IllegalStateException("No consume(Message) method for " + address, nsme);
                         }
                     } else if (isMethodBased) {
                         targetMethod = methodMap.get(address);
                         targetClass = methodClassMap.get(address);
                         if (targetClass == null) {
                             log.error("No method class found for address {}", address);
-                            return;
+                            throw new IllegalStateException("No method class for " + address);
                         }
                         if (!includeByPackage.test(targetClass.getPackageName())) {
                             return;
                         }
                     } else {
                         // Unknown definition type
-                        log.warn("No consumer target found for address {}", address);
-                        return;
+                        throw new IllegalStateException("No consumer target for " + address);
                     }
 
                     int instances = Math.max(1, def.options().instances() > 0 ? def.options().instances() : def.options().consumerCount());
@@ -118,22 +117,20 @@ public class VertxConsumersStartup implements VerticleStartup<VertxConsumersStar
                     deploymentFutures.add(deployFuture);
                 } catch (Throwable t) {
                     log.error("Error while deploying consumer verticle for {}", address, t);
+                    deploymentFutures.add(Future.failedFuture(t));
                 }
             });
 
             // Wait for all consumer verticle deployments to complete before signalling startup
-            if (!deploymentFutures.isEmpty()) {
-                Future.all(deploymentFutures)
+            Future.all(deploymentFutures)
                         .onSuccess(v -> log.debug("VertxConsumersStartup: all {} consumer verticles deployed for assignedPackage='{}'",
                                     deploymentFutures.size(), assignedPackage))
                         .onFailure(t -> log.error("VertxConsumersStartup: some consumer verticles failed to deploy for assignedPackage='{}'",
-                                    assignedPackage, t));
-            } else {
-                log.trace("📋 VertxConsumersStartup: no consumers to deploy for assignedPackage='{}'", assignedPackage);
-            }
+                                    assignedPackage, t))
+                        .<Void>mapEmpty().onComplete(startPromise);
         } catch (Throwable t) {
             log.error("Failed to deploy per-address consumer verticles for assignedPackage='{}'", assignedPackage, t);
-            // Do not fail the verticle start promise here to avoid cascading failures.
+            startPromise.tryFail(t);
         }
     }
 }

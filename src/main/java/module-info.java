@@ -30,12 +30,9 @@ module com.guicedee.vertx {
     requires static io.vertx.grpc.common;
 
     requires transitive com.guicedee.client;
-    requires transitive com.guicedee.jsonrepresentation;
 
     requires transitive org.apache.logging.log4j;
 
-    requires transitive com.fasterxml.jackson.annotation;
-    requires transitive tools.jackson.core;
 
     requires transitive io.smallrye.mutiny;
 
@@ -45,7 +42,6 @@ module com.guicedee.vertx {
     requires static lombok;
 
     exports com.guicedee.vertx.spi;
-    exports com.guicedee.vertx.spi.json;
     exports com.guicedee.vertx;
     exports com.guicedee.vertx.proxy;
     exports com.guicedee.vertx.redis;
@@ -80,11 +76,6 @@ module com.guicedee.vertx {
     provides IGuicePreDestroy with VertXPostStartup, VertxAuthPreDestroy;
     provides IGuiceModule with VertXModule, VertxAuthModule;
     provides com.guicedee.client.services.lifecycle.IGuiceConfigurator with VertxClassScanConfig;
-
-    // Route all Vert.x JSON (Json.encode/decode, JsonObject.mapTo/mapFrom, event-bus
-    // payloads, etc.) through the GuicedEE Jackson 3 mapper instead of Vert.x's default
-    // Jackson 2 fallback codec.
-    provides io.vertx.core.spi.JsonFactory with com.guicedee.vertx.spi.json.GuicedVertxJsonFactory;
 
     uses com.guicedee.vertx.spi.VertxConfigurator;
     uses VerticleStartup;

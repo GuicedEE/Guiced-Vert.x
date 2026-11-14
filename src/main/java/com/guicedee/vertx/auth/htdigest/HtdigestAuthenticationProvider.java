@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.htdigest;
 
+import com.guicedee.client.utils.Discovery;
+
 import com.guicedee.client.utils.ClassLoading;
 
 import com.guicedee.client.Environment;
@@ -35,7 +37,7 @@ public class HtdigestAuthenticationProvider implements IGuicedAuthenticationProv
     @Override
     public AuthenticationProvider getAuthenticationProvider()
     {
-        ScanResult scanResult = IGuiceContext.instance().getScanResult();
+        ScanResult scanResult = Discovery.scanResult();
         htdigestAuthOptions = discoverOptions(scanResult);
 
         if (htdigestAuthOptions == null)
@@ -91,6 +93,9 @@ public class HtdigestAuthenticationProvider implements IGuicedAuthenticationProv
 
     private HtdigestAuthOptions discoverOptions(ScanResult scanResult)
     {
+        var registered = Discovery.firstRegisteredAnnotation(HtdigestAuthOptions.class);
+        if (registered.isPresent()) return registered.get();
+        if (scanResult == null) return null;
         var annotatedClasses = scanResult.getClassesWithAnnotation(HtdigestAuthOptions.class);
         for (var ci : annotatedClasses)
         {

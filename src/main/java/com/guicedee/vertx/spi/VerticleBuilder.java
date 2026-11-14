@@ -1,12 +1,10 @@
 package com.guicedee.vertx.spi;
 
-import com.guicedee.client.utils.ClassLoading;
+import com.guicedee.client.utils.Discovery;
 
 import com.google.common.base.Strings;
 import com.guicedee.client.IGuiceContext;
 import io.github.classgraph.AnnotationInfo;
-import io.github.classgraph.ClassInfo;
-import io.github.classgraph.ClassInfoList;
 import io.github.classgraph.PackageInfo;
 import io.vertx.core.*;
 import lombok.Getter;
@@ -52,6 +50,23 @@ public class VerticleBuilder
         dispatchedStartups.clear();
     }
 
+    /** Every hook owns its readiness signal; one hook cannot complete another's work. */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void startHooks(Promise<Void> ready, Vertx vertx, AbstractVerticle verticle,
+                                   String assignedPackage, List<VerticleStartup> startups) {
+        List<Future<?>> pending = new ArrayList<>(startups.size());
+        for (VerticleStartup startup : startups) {
+            Promise<Void> hook = Promise.promise();
+            pending.add(hook.future());
+            try {
+                startup.start(hook, vertx, verticle, assignedPackage);
+            } catch (Throwable failure) {
+                hook.tryFail(failure);
+            }
+        }
+        Future.all(pending).<Void>mapEmpty().onComplete(ready);
+    }
+
 
     /**
      * Finds and prepares the application's Verticles for deployment.
@@ -68,18 +83,22 @@ public class VerticleBuilder
             return verticlePackages;
         }
         Map<String, io.vertx.core.Verticle> map = new HashMap<>();
-        var scanResult = IGuiceContext.instance().getScanResult();
-        ClassInfoList foundVerticleClasses = scanResult.getClassesWithAnnotation(Verticle.class);
+        var scanResult = Discovery.scanResult();
+        var foundVerticleClasses = Discovery.annotatedClasses(Verticle.class);
 
         // Also discover package-level @Verticle annotations from package-info.java files
         Map<String, Verticle> packageLevelVerticles = new LinkedHashMap<>();
-        for (PackageInfo packageInfo : scanResult.getPackageInfo())
+        for (Package pkg : Discovery.registeredPackages()) {
+            Verticle annotation = pkg.getDeclaredAnnotation(Verticle.class);
+            if (annotation != null) packageLevelVerticles.put(pkg.getName(), annotation);
+        }
+        if (scanResult != null) for (PackageInfo packageInfo : scanResult.getPackageInfo())
         {
             AnnotationInfo annotationInfo = packageInfo.getDirectAnnotationInfo(Verticle.class.getName());
             if (annotationInfo != null)
             {
                 Verticle reconstructed = reconstructVerticleAnnotation(annotationInfo);
-                packageLevelVerticles.put(packageInfo.getName(), reconstructed);
+                packageLevelVerticles.putIfAbsent(packageInfo.getName(), reconstructed);
                 log.debug("Found package-level Verticle: {} - workerPoolName={}", packageInfo.getName(), reconstructed.value());
             }
         }
@@ -95,20 +114,10 @@ public class VerticleBuilder
                 {
                     @SuppressWarnings("rawtypes")
                     ServiceLoader<VerticleStartup> startups = ServiceLoader.load(VerticleStartup.class);
-                    startups.stream().map(ServiceLoader.Provider::get)
+                    startHooks(startPromise, vertx, this, "", startups.stream().map(ServiceLoader.Provider::get)
                             .filter(a -> packageNames.stream()
                                     .anyMatch(pkg -> a.getClass().getPackage().getName().startsWith(pkg)))
-                            .forEachOrdered(entry -> {
-                                //noinspection unchecked
-                                entry.start(startPromise, vertx, this, "");
-                            });
-                    // Ensure the verticle deployment completes even if startups are synchronous
-                    // or do not explicitly complete the promise.
-                    if (!startPromise.future().isComplete())
-                    {
-                        startPromise.tryComplete();
-                    }
-                    //super.start(startPromise);
+                            .toList());
                 }
             });
             // Deploy after map fully built (single global verticle)
@@ -127,9 +136,9 @@ public class VerticleBuilder
             // Key = package name, Value = annotation
             Map<String, Verticle> mergedVerticles = new LinkedHashMap<>();
 
-            for (ClassInfo classInfo : foundVerticleClasses)
+            for (Class<?> classInfo : foundVerticleClasses)
             {
-                var annotation = ClassLoading.loadClass(classInfo).getDeclaredAnnotation(Verticle.class);
+                var annotation = classInfo.getDeclaredAnnotation(Verticle.class);
                 log.debug("Found Verticle (class-level): {} - {}", classInfo.getPackageName(), classInfo.getSimpleName());
                 mergedVerticles.put(classInfo.getPackageName(), annotation);
             }
@@ -196,12 +205,13 @@ public class VerticleBuilder
                         // Guard against double-start
                         if (!startedVerticleKeys.add(verticlePkgName))
                         {
+                            startPromise.tryComplete();
                             return;
                         }
 
                         @SuppressWarnings("rawtypes")
                         ServiceLoader<VerticleStartup> startups = ServiceLoader.load(VerticleStartup.class);
-                        startups.stream().map(ServiceLoader.Provider::get)
+                        startHooks(startPromise, vertx, this, verticlePkgName, startups.stream().map(ServiceLoader.Provider::get)
                                 .filter(a -> {
                                     String startupPkg = a.getClass().getPackage().getName();
 
@@ -230,16 +240,7 @@ public class VerticleBuilder
                                 // (e.g. VertxConsumersStartup deploys consumers scoped to each verticle).
                                 .filter(a -> a.getClass().getPackage().getName().startsWith("com.guicedee.vertx.spi")
                                         || dispatchedStartups.add(a.getClass().getName()))
-                                .forEachOrdered(startupEntry -> {
-                                    //noinspection unchecked
-                                    startupEntry.start(startPromise, vertx, this, verticlePkgName);
-                                });
-
-                        // Ensure deployment completes even if startups don't complete the promise
-                        if (!startPromise.future().isComplete())
-                        {
-                            startPromise.tryComplete();
-                        }
+                                .toList());
                     }
                 });
             }
@@ -254,22 +255,14 @@ public class VerticleBuilder
                 {
                     @SuppressWarnings("rawtypes")
                     ServiceLoader<VerticleStartup> startups = ServiceLoader.load(VerticleStartup.class);
-                    startups.stream().map(ServiceLoader.Provider::get)
+                    startHooks(startPromise, vertx, this, "", startups.stream().map(ServiceLoader.Provider::get)
                             // Only include startups whose package does NOT start with any annotated prefix
                             .filter(a -> prefixes.stream().noneMatch(pkg -> !pkg.isEmpty() && a.getClass().getPackage().getName().startsWith(pkg)))
                             // Exclude any startup already dispatched by a specific verticle.
                             // Core SPI startups are exempt — they run per-verticle.
                             .filter(a -> a.getClass().getPackage().getName().startsWith("com.guicedee.vertx.spi")
                                     || dispatchedStartups.add(a.getClass().getName()))
-                            .forEachOrdered(entry -> {
-                                //noinspection unchecked
-                                entry.start(startPromise, vertx, this, "");
-                            });
-                    // Ensure deployment completes even if startups are synchronous
-                    if (!startPromise.future().isComplete())
-                    {
-                        startPromise.tryComplete();
-                    }
+                            .toList());
                 }
             });
 

@@ -1,15 +1,11 @@
 package com.guicedee.vertx.grpc;
 
-import com.fasterxml.jackson.annotation.*;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import lombok.experimental.Accessors;
 
-import static com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.ANY;
-import static com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE;
-import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 
 /**
  * Configuration holder for a Vert.x gRPC server and client connection.
@@ -25,9 +21,6 @@ import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
  * GRPC_{NAME}_WEB_ENABLED, GRPC_{NAME}_TRANSCODING_ENABLED
  * </pre>
  */
-@JsonAutoDetect(fieldVisibility = ANY, getterVisibility = NONE, setterVisibility = NONE)
-@JsonInclude(NON_NULL)
-@JsonIgnoreProperties(ignoreUnknown = true)
 @ToString
 @EqualsAndHashCode(of = {"name"})
 @Getter

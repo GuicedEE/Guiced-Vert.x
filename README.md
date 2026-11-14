@@ -15,7 +15,7 @@ Guice-first integration layer for **Vert.x 5**. Bootstraps Vert.x from the [Guic
 - **Vert.x lifecycle managed by GuicedEE** — `Vertx` is injected everywhere via `VertXModule`
 - **Annotation-driven consumers** — `@VertxEventDefinition` + `@VertxEventOptions` with worker threads, instance counts, local-only, and backpressure hints
 - **Injectable publishers** — `@Named` or `@VertxEventDefinition`, returning Vert.x `Future` or Mutiny `Uni`
-- **Automatic JSON mapping** — codec registration through `CodecRegistry` and Jackson
+- **Optional JSON mapping** — add `json-representation` for SPI-registered Jackson codecs; see [activation and migration](../client/JSON_OPT_IN.md)
 - **Per-address consumer verticles** — each consumer runs in its own dedicated verticle
 - **Publisher-side throttling** — FIFO queuing with configurable rate, no message loss
 - **Runtime configuration** — annotations (`@VertX`, `@EventBusOptions`, `@FileSystemOptions`, `@MetricsOptions`) plus SPI hooks (`VertxConfigurator`, `ClusterVertxConfigurator`, `VerticleStartup`)
@@ -47,7 +47,14 @@ IGuiceContext.registerModuleForScanning.add("my.app");
 IGuiceContext.instance();
 ```
 
-Tune Vert.x at the package or type level:
+Tune the runtime through the application's `.env`, without a `@VertX` annotation:
+
+```dotenv
+VERTX_EVENT_LOOP_POOL_SIZE=2
+VERTX_WORKER_POOL_SIZE=20
+```
+
+Resolution uses GuicedEE `Environment`: system properties, process environment, `.env.local`, `.env`, then annotation/framework defaults. With no annotation or override, Vert.x's runtime defaults are retained. Package/type annotations remain supported:
 
 ```java
 @VertX(workerPoolSize = 32, haEnabled = true)
@@ -377,19 +384,19 @@ flowchart TD
 | `IGuicedAuthenticationProvider` | Contribute authentication providers to `ChainAuth` |
 | `IGuicedAuthorizationProvider` | Contribute authorization providers |
 
+Each `VerticleStartup` receives its own readiness promise. Complete it after all asynchronous setup finishes, or fail it when setup fails; synchronous hooks must complete it before returning. Deployment and `getLoadingFinished()` await every hook and consumer registration. Returning without completing the promise no longer reports the application ready prematurely.
+
 ## 🗺️ Module Graph
 
 ```mermaid
 flowchart LR
     com_guicedee_vertx["com.guicedee.vertx"]
     com_guicedee_vertx --> com_guicedee_client["com.guicedee.client<br/>SPI contracts"]
-    com_guicedee_vertx --> com_guicedee_jsonrepresentation["com.guicedee.jsonrepresentation<br/>JSON codec support"]
     com_guicedee_vertx --> io_vertx_core["io.vertx.core<br/>Vert.x runtime"]
     com_guicedee_vertx --> io_vertx_auth_common["io.vertx.auth.common<br/>Authentication & Authorization"]
     com_guicedee_vertx --> io_smallrye_mutiny["io.smallrye.mutiny<br/>reactive streams"]
     com_guicedee_vertx --> jakarta_cdi["jakarta.cdi<br/>annotation API compatibility"]
     com_guicedee_vertx --> io_github_classgraph["io.github.classgraph<br/>annotation scanning"]
-    com_guicedee_vertx --> com_fasterxml_jackson_databind["com.fasterxml.jackson.databind<br/>JSON mapping"]
 ```
 
 ## Bounded HTTP stream cancellation

@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.jwt;
 
+import com.guicedee.client.utils.Discovery;
+
 import com.guicedee.client.utils.ClassLoading;
 
 import com.guicedee.client.Environment;
@@ -58,7 +60,7 @@ public class JwtAuthenticationProvider implements IGuicedAuthenticationProvider
     @Override
     public AuthenticationProvider getAuthenticationProvider()
     {
-        ScanResult scanResult = IGuiceContext.instance().getScanResult();
+        ScanResult scanResult = Discovery.scanResult();
         jwtAuthOptions = discoverJwtAuthOptions(scanResult);
 
         if (jwtAuthOptions == null)
@@ -226,6 +228,9 @@ public class JwtAuthenticationProvider implements IGuicedAuthenticationProvider
 
     private JwtAuthOptions discoverJwtAuthOptions(ScanResult scanResult)
     {
+        var registered = Discovery.firstRegisteredAnnotation(JwtAuthOptions.class);
+        if (registered.isPresent()) return registered.get();
+        if (scanResult == null) return null;
         // Check annotated classes
         var annotatedClasses = scanResult.getClassesWithAnnotation(JwtAuthOptions.class);
         for (var ci : annotatedClasses)

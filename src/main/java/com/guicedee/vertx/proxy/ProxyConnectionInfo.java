@@ -1,6 +1,5 @@
 package com.guicedee.vertx.proxy;
 
-import com.fasterxml.jackson.annotation.*;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
@@ -10,9 +9,6 @@ import lombok.experimental.Accessors;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.ANY;
-import static com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE;
-import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 
 /**
  * Configuration holder for a Vert.x HTTP reverse proxy.
@@ -29,9 +25,6 @@ import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
  * PROXY_{NAME}_WEBSOCKET
  * </pre>
  */
-@JsonAutoDetect(fieldVisibility = ANY, getterVisibility = NONE, setterVisibility = NONE)
-@JsonInclude(NON_NULL)
-@JsonIgnoreProperties(ignoreUnknown = true)
 @ToString
 @EqualsAndHashCode(of = {"name"})
 @Getter

@@ -1,13 +1,10 @@
 package com.guicedee.vertx.redis;
 
-import com.guicedee.client.utils.ClassLoading;
+import com.guicedee.client.utils.Discovery;
+
 
 import com.guicedee.client.Environment;
-import com.guicedee.client.IGuiceContext;
 import com.guicedee.client.services.lifecycle.IGuicePreStartup;
-import io.github.classgraph.ClassInfo;
-import io.github.classgraph.ClassInfoList;
-import io.github.classgraph.ScanResult;
 import io.vertx.core.Future;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -35,23 +32,8 @@ public class RedisPreStartup implements IGuicePreStartup<RedisPreStartup> {
     public List<Future<Boolean>> onStartup() {
         discoveredConnections.clear();
 
-        ScanResult scanResult = IGuiceContext.instance().getScanResult();
-        if (scanResult == null) {
-            log.warn("⚠️ No scan result available — skipping Redis annotation discovery");
-            return List.of();
-        }
-
-        // Scan classes for @RedisOptions
-        ClassInfoList annotatedClasses = scanResult.getClassesWithAnnotation(RedisOptions.class.getName());
-        for (ClassInfo classInfo : annotatedClasses) {
-            processAnnotations(ClassLoading.loadClass(classInfo).getAnnotationsByType(RedisOptions.class));
-        }
-
-        // Scan package-info classes for @RedisOptions
-        ClassInfoList packageInfoClasses = scanResult.getClassesWithAnnotation(RedisOptionsContainer.class.getName());
-        for (ClassInfo classInfo : packageInfoClasses) {
-            processAnnotations(ClassLoading.loadClass(classInfo).getAnnotationsByType(RedisOptions.class));
-        }
+        for (var annotation : Discovery.annotations(RedisOptions.class))
+            processAnnotations(new RedisOptions[]{annotation});
 
         if (!discoveredConnections.isEmpty()) {
             log.info("🔴 Discovered {} Redis connection(s) via @RedisOptions annotations", discoveredConnections.size());

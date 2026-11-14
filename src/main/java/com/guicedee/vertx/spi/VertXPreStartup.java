@@ -1,6 +1,6 @@
 package com.guicedee.vertx.spi;
 
-import com.guicedee.client.utils.ClassLoading;
+import com.guicedee.client.utils.Discovery;
 
 import com.guicedee.client.IGuiceContext;
 import com.guicedee.client.services.lifecycle.IGuicePreDestroy;
@@ -82,104 +82,98 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     private VertxOptions configureVertxOptions() {
         VertxOptions options = new VertxOptions();
         // Process the @VertX annotation
-        var vertxStaticConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(VertX.class);
+        var vertxStaticConfig = Discovery.annotations(VertX.class);
         if (vertxStaticConfig.size() > 1) {
-            throw new RuntimeException("Only one VertX class may be defined");
+            throw new RuntimeException("Only one VertX configuration may be defined");
         }
-        if (vertxStaticConfig.size() == 1) {
-            var clazz = ClassLoading.loadClass(vertxStaticConfig.getFirst());
-            VertX annotation = clazz.getDeclaredAnnotation(VertX.class);
-            if (annotation == null) {
-                throw new RuntimeException("Could not read VertX annotation from class");
+        VertX annotation = vertxStaticConfig.isEmpty() ? null : vertxStaticConfig.getFirst();
+        VertX wrappedVertX = new VertX() {
+            @Override
+            public Class<? extends java.lang.annotation.Annotation> annotationType() {
+                return VertX.class;
             }
-            VertX wrappedVertX = new VertX() {
-                @Override
-                public Class<? extends java.lang.annotation.Annotation> annotationType() {
-                    return VertX.class;
-                }
 
-                @Override
-                public int eventLoopPoolSize() {
-                    return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_LOOP_POOL_SIZE", String.valueOf(annotation.eventLoopPoolSize())));
-                }
+            @Override
+            public int eventLoopPoolSize() {
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_LOOP_POOL_SIZE", String.valueOf((annotation == null ? options.getEventLoopPoolSize() : annotation.eventLoopPoolSize()))));
+            }
 
-                @Override
-                public int workerPoolSize() {
-                    return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_WORKER_POOL_SIZE", String.valueOf(annotation.workerPoolSize())));
-                }
+            @Override
+            public int workerPoolSize() {
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_WORKER_POOL_SIZE", String.valueOf((annotation == null ? options.getWorkerPoolSize() : annotation.workerPoolSize()))));
+            }
 
-                @Override
-                public long blockedThreadCheckInterval() {
-                    return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_BLOCKED_THREAD_CHECK_INTERVAL", String.valueOf(annotation.blockedThreadCheckInterval())));
-                }
+            @Override
+            public long blockedThreadCheckInterval() {
+                return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_BLOCKED_THREAD_CHECK_INTERVAL", String.valueOf((annotation == null ? options.getBlockedThreadCheckInterval() : annotation.blockedThreadCheckInterval()))));
+            }
 
-                @Override
-                public java.util.concurrent.TimeUnit blockedThreadCheckIntervalTimeUnit() {
-                    return java.util.concurrent.TimeUnit.valueOf(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_BLOCKED_THREAD_CHECK_INTERVAL_TIME_UNIT", annotation.blockedThreadCheckIntervalTimeUnit().name()));
-                }
+            @Override
+            public java.util.concurrent.TimeUnit blockedThreadCheckIntervalTimeUnit() {
+                return java.util.concurrent.TimeUnit.valueOf(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_BLOCKED_THREAD_CHECK_INTERVAL_TIME_UNIT", (annotation == null ? options.getBlockedThreadCheckIntervalUnit() : annotation.blockedThreadCheckIntervalTimeUnit()).name()));
+            }
 
-                @Override
-                public long maxEventLoopExecuteTime() {
-                    return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_MAX_EVENT_LOOP_EXECUTE_TIME", String.valueOf(annotation.maxEventLoopExecuteTime())));
-                }
+            @Override
+            public long maxEventLoopExecuteTime() {
+                return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_MAX_EVENT_LOOP_EXECUTE_TIME", String.valueOf((annotation == null ? options.getMaxEventLoopExecuteTime() : annotation.maxEventLoopExecuteTime()))));
+            }
 
-                @Override
-                public java.util.concurrent.TimeUnit maxEventLoopExecuteTimeUnit() {
-                    return java.util.concurrent.TimeUnit.valueOf(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_MAX_EVENT_LOOP_EXECUTE_TIME_UNIT", annotation.maxEventLoopExecuteTimeUnit().name()));
-                }
+            @Override
+            public java.util.concurrent.TimeUnit maxEventLoopExecuteTimeUnit() {
+                return java.util.concurrent.TimeUnit.valueOf(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_MAX_EVENT_LOOP_EXECUTE_TIME_UNIT", (annotation == null ? options.getMaxEventLoopExecuteTimeUnit() : annotation.maxEventLoopExecuteTimeUnit()).name()));
+            }
 
-                @Override
-                public long maxWorkerExecuteTime() {
-                    return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_MAX_WORKER_EXECUTE_TIME", String.valueOf(annotation.maxWorkerExecuteTime())));
-                }
+            @Override
+            public long maxWorkerExecuteTime() {
+                return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_MAX_WORKER_EXECUTE_TIME", String.valueOf((annotation == null ? options.getMaxWorkerExecuteTime() : annotation.maxWorkerExecuteTime()))));
+            }
 
-                @Override
-                public java.util.concurrent.TimeUnit maxWorkerExecuteTimeUnit() {
-                    return java.util.concurrent.TimeUnit.valueOf(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_MAX_WORKER_EXECUTE_TIME_UNIT", annotation.maxWorkerExecuteTimeUnit().name()));
-                }
+            @Override
+            public java.util.concurrent.TimeUnit maxWorkerExecuteTimeUnit() {
+                return java.util.concurrent.TimeUnit.valueOf(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_MAX_WORKER_EXECUTE_TIME_UNIT", (annotation == null ? options.getMaxWorkerExecuteTimeUnit() : annotation.maxWorkerExecuteTimeUnit()).name()));
+            }
 
-                @Override
-                public int internalBlockingPoolSize() {
-                    return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_INTERNAL_BLOCKING_POOL_SIZE", String.valueOf(annotation.internalBlockingPoolSize())));
-                }
+            @Override
+            public int internalBlockingPoolSize() {
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_INTERNAL_BLOCKING_POOL_SIZE", String.valueOf((annotation == null ? options.getInternalBlockingPoolSize() : annotation.internalBlockingPoolSize()))));
+            }
 
-                @Override
-                public boolean haEnabled() {
-                    return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_HA_ENABLED", String.valueOf(annotation.haEnabled())));
-                }
+            @Override
+            public boolean haEnabled() {
+                return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_HA_ENABLED", String.valueOf((annotation == null ? options.isHAEnabled() : annotation.haEnabled()))));
+            }
 
-                @Override
-                public int quorumSize() {
-                    return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_QUORUM_SIZE", String.valueOf(annotation.quorumSize())));
-                }
+            @Override
+            public int quorumSize() {
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_QUORUM_SIZE", String.valueOf((annotation == null ? options.getQuorumSize() : annotation.quorumSize()))));
+            }
 
-                @Override
-                public long warningExceptionTime() {
-                    return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_WARNING_EXCEPTION_TIME", String.valueOf(annotation.warningExceptionTime())));
-                }
+            @Override
+            public long warningExceptionTime() {
+                return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_WARNING_EXCEPTION_TIME", String.valueOf((annotation == null ? options.getWarningExceptionTime() : annotation.warningExceptionTime()))));
+            }
 
-                @Override
-                public java.util.concurrent.TimeUnit warningExceptionTimeUnit() {
-                    return java.util.concurrent.TimeUnit.valueOf(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_WARNING_EXCEPTION_TIME_UNIT", annotation.warningExceptionTimeUnit().name()));
-                }
+            @Override
+            public java.util.concurrent.TimeUnit warningExceptionTimeUnit() {
+                return java.util.concurrent.TimeUnit.valueOf(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_WARNING_EXCEPTION_TIME_UNIT", (annotation == null ? options.getWarningExceptionTimeUnit() : annotation.warningExceptionTimeUnit()).name()));
+            }
 
-                @Override
-                public boolean preferNativeTransport() {
-                    return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_PREFER_NATIVE_TRANSPORT", String.valueOf(annotation.preferNativeTransport())));
-                }
+            @Override
+            public boolean preferNativeTransport() {
+                return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_PREFER_NATIVE_TRANSPORT", String.valueOf((annotation == null ? options.getPreferNativeTransport() : annotation.preferNativeTransport()))));
+            }
 
-                @Override
-                public boolean useDaemonThreads() {
-                    return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_USE_DAEMON_THREADS", String.valueOf(annotation.useDaemonThreads())));
-                }
+            @Override
+            public boolean useDaemonThreads() {
+                return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_USE_DAEMON_THREADS", String.valueOf((annotation == null ? Boolean.TRUE.equals(options.getUseDaemonThread()) : annotation.useDaemonThreads()))));
+            }
 
-                @Override
-                public boolean disableTCCL() {
-                    return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_DISABLE_TCCL", String.valueOf(annotation.disableTCCL())));
-                }
-            };
-            applyVertxAnnotation(options, wrappedVertX);
-        }
+            @Override
+            public boolean disableTCCL() {
+                return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_DISABLE_TCCL", String.valueOf((annotation == null ? options.getDisableTCCL() : annotation.disableTCCL()))));
+            }
+        };
+        applyVertxAnnotation(options, wrappedVertX);
 
         // Process other configuration annotations
         processMetricsOptions(options);
@@ -208,9 +202,9 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     }
 
     private void processMetricsOptions(VertxOptions options) {
-        var metricsConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(MetricsOptions.class);
+        var metricsConfig = Discovery.annotatedClasses(MetricsOptions.class);
         if (metricsConfig.size() == 1) {
-            var clazz = ClassLoading.loadClass(metricsConfig.getFirst());
+            var clazz = metricsConfig.getFirst();
             MetricsOptions metricsAnnotation = clazz.getDeclaredAnnotation(MetricsOptions.class);
             if (metricsAnnotation != null) {
                 MetricsOptions wrappedMetrics = new MetricsOptions() {
@@ -231,9 +225,9 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     }
 
     private void processFileSystemOptions(VertxOptions options) {
-        var fileSystemConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(FileSystemOptions.class);
+        var fileSystemConfig = Discovery.annotatedClasses(FileSystemOptions.class);
         if (fileSystemConfig.size() == 1) {
-            var clazz = ClassLoading.loadClass(fileSystemConfig.getFirst());
+            var clazz = fileSystemConfig.getFirst();
             FileSystemOptions fileSystemAnnotation = clazz.getDeclaredAnnotation(FileSystemOptions.class);
             if (fileSystemAnnotation != null) {
                 FileSystemOptions wrappedFS = new FileSystemOptions() {
@@ -268,9 +262,9 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     }
 
     private void processEventBusOptions(VertxOptions options) {
-        var eventBusConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(EventBusOptions.class);
+        var eventBusConfig = Discovery.annotatedClasses(EventBusOptions.class);
         if (eventBusConfig.size() == 1) {
-            var clazz = ClassLoading.loadClass(eventBusConfig.getFirst());
+            var clazz = eventBusConfig.getFirst();
             EventBusOptions eventBusAnnotation = clazz.getDeclaredAnnotation(EventBusOptions.class);
             if (eventBusAnnotation != null) {
                 EventBusOptions wrappedEB = new EventBusOptions() {
@@ -359,9 +353,9 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
     }
 
     private void processAddressResolverOptions(VertxOptions options) {
-        var addressResolverConfig = IGuiceContext.instance().getScanResult().getClassesWithAnnotation(AddressResolverOptions.class);
+        var addressResolverConfig = Discovery.annotatedClasses(AddressResolverOptions.class);
         if (addressResolverConfig.size() == 1) {
-            var clazz = ClassLoading.loadClass(addressResolverConfig.getFirst());
+            var clazz = addressResolverConfig.getFirst();
             AddressResolverOptions addressResolverAnnotation = clazz.getDeclaredAnnotation(AddressResolverOptions.class);
             if (addressResolverAnnotation != null) {
                 AddressResolverOptions wrappedAR = new AddressResolverOptions() {

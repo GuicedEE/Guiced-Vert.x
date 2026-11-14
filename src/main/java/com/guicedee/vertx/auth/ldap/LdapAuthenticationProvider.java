@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.ldap;
 
+import com.guicedee.client.utils.Discovery;
+
 import com.guicedee.client.utils.ClassLoading;
 
 import com.guicedee.client.Environment;
@@ -38,7 +40,7 @@ public class LdapAuthenticationProvider implements IGuicedAuthenticationProvider
     @Override
     public AuthenticationProvider getAuthenticationProvider()
     {
-        ScanResult scanResult = IGuiceContext.instance().getScanResult();
+        ScanResult scanResult = Discovery.scanResult();
         ldapAuthOptions = discoverOptions(scanResult);
 
         if (ldapAuthOptions == null)
@@ -84,6 +86,9 @@ public class LdapAuthenticationProvider implements IGuicedAuthenticationProvider
 
     private LdapAuthOptions discoverOptions(ScanResult scanResult)
     {
+        var registered = Discovery.firstRegisteredAnnotation(LdapAuthOptions.class);
+        if (registered.isPresent()) return registered.get();
+        if (scanResult == null) return null;
         var annotatedClasses = scanResult.getClassesWithAnnotation(LdapAuthOptions.class);
         for (var ci : annotatedClasses)
         {

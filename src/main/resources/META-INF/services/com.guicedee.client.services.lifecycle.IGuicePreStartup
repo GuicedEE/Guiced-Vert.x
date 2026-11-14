@@ -1,3 +1,5 @@
 com.guicedee.vertx.spi.VertXPreStartup
+com.guicedee.vertx.auth.VertxAuthPreStartup
+com.guicedee.vertx.redis.RedisPreStartup
 com.guicedee.vertx.grpc.GrpcPreStartup
 

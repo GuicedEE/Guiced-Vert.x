@@ -1,5 +1,7 @@
 package com.guicedee.vertx.auth.properties;
 
+import com.guicedee.client.utils.Discovery;
+
 import com.guicedee.client.utils.ClassLoading;
 
 import com.guicedee.client.Environment;
@@ -43,7 +45,7 @@ public class PropertyFileAuthenticationProvider implements IGuicedAuthentication
     @Override
     public AuthenticationProvider getAuthenticationProvider()
     {
-        ScanResult scanResult = IGuiceContext.instance().getScanResult();
+        ScanResult scanResult = Discovery.scanResult();
         propertyFileAuthOptions = discoverOptions(scanResult);
 
         if (propertyFileAuthOptions == null)
@@ -88,6 +90,9 @@ public class PropertyFileAuthenticationProvider implements IGuicedAuthentication
 
     private PropertyFileAuthOptions discoverOptions(ScanResult scanResult)
     {
+        var registered = Discovery.firstRegisteredAnnotation(PropertyFileAuthOptions.class);
+        if (registered.isPresent()) return registered.get();
+        if (scanResult == null) return null;
         var annotatedClasses = scanResult.getClassesWithAnnotation(PropertyFileAuthOptions.class);
         for (var ci : annotatedClasses)
         {

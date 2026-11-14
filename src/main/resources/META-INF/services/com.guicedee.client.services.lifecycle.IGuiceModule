@@ -1,1 +1,2 @@
 com.guicedee.vertx.VertXModule
+com.guicedee.vertx.auth.VertxAuthModule
