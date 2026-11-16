@@ -78,80 +78,17 @@ public class PropertyFileAuthenticationProvider implements IGuicedAuthentication
 
     static String resolvePath(PropertyFileAuthOptions ann)
     {
-        String envPath = Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_PROPERTIES_PATH", null);
-        if (envPath != null && !envPath.isBlank())
-        {
-            return envPath;
-        }
-        return resolveEnvPlaceholders(ann.path());
+        return Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_PROPERTIES_PATH", ann.path());
     }
 
     // ── Annotation discovery ────────────────────────────
 
     private PropertyFileAuthOptions discoverOptions(ScanResult scanResult)
     {
-        var registered = Discovery.firstRegisteredAnnotation(PropertyFileAuthOptions.class);
-        if (registered.isPresent()) return registered.get();
-        if (scanResult == null) return null;
-        var annotatedClasses = scanResult.getClassesWithAnnotation(PropertyFileAuthOptions.class);
-        for (var ci : annotatedClasses)
-        {
-            var ann = ClassLoading.loadClass(ci).getAnnotation(PropertyFileAuthOptions.class);
-            if (ann != null)
-            {
-                log.debug("Found @PropertyFileAuthOptions on class: {}", ci.getName());
-                return ann;
-            }
-        }
-
-        var packageInfoList = scanResult.getPackageInfo();
-        for (var pkgInfo : packageInfoList)
-        {
-            try
-            {
-                Class<?> pkgClass = Class.forName(pkgInfo.getName() + ".package-info");
-                var ann = pkgClass.getAnnotation(PropertyFileAuthOptions.class);
-                if (ann != null)
-                {
-                    log.debug("Found @PropertyFileAuthOptions on package: {}", pkgInfo.getName());
-                    return ann;
-                }
-            }
-            catch (ClassNotFoundException _) { }
-        }
-
-        return null;
+        return Discovery.singleAnnotation(PropertyFileAuthOptions.class).orElse(null);
     }
 
     // ── Placeholder helper ──────────────────────────────
-
-    private static String resolveEnvPlaceholders(String value)
-    {
-        if (value == null || !value.contains("${"))
-        {
-            return value;
-        }
-        StringBuilder result = new StringBuilder();
-        int i = 0;
-        while (i < value.length())
-        {
-            if (value.charAt(i) == '$' && i + 1 < value.length() && value.charAt(i + 1) == '{')
-            {
-                int end = value.indexOf('}', i + 2);
-                if (end > 0)
-                {
-                    String varName = value.substring(i + 2, end);
-                    String resolved = Environment.getSystemPropertyOrEnvironment(varName, "");
-                    result.append(resolved);
-                    i = end + 1;
-                    continue;
-                }
-            }
-            result.append(value.charAt(i));
-            i++;
-        }
-        return result.toString();
-    }
 
     /**
      * Resets all state — for testing purposes.

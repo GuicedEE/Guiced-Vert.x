@@ -80,20 +80,11 @@ public class AbacAuthorizationProvider implements IGuicedAuthorizationProvider
             }
 
             // 2. Policy files
-            String envFiles = env("POLICY_FILES", null);
-            String[] files;
-            if (envFiles != null && !envFiles.isBlank())
-            {
-                files = envFiles.split(",");
-            }
-            else
-            {
-                files = abacOptions.policyFiles();
-            }
+            String[] files = Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_ABAC_POLICY_FILES", ",", abacOptions.policyFiles()).split(",");
 
             for (String filePath : files)
             {
-                String resolved = resolveEnvPlaceholders(filePath.trim());
+                String resolved = filePath.trim();
                 if (resolved.isBlank()) continue;
 
                 try
@@ -168,77 +159,19 @@ public class AbacAuthorizationProvider implements IGuicedAuthorizationProvider
 
     private AbacOptions discoverAbacOptions(ScanResult scanResult)
     {
-        var registered = Discovery.firstRegisteredAnnotation(AbacOptions.class);
-        if (registered.isPresent()) return registered.get();
-        if (scanResult == null) return null;
-        var annotatedClasses = scanResult.getClassesWithAnnotation(AbacOptions.class);
-        for (var ci : annotatedClasses)
-        {
-            var ann = ClassLoading.loadClass(ci).getAnnotation(AbacOptions.class);
-            if (ann != null)
-            {
-                log.debug("Found @AbacOptions on class: {}", ci.getName());
-                return ann;
-            }
-        }
-
-        var packageInfoList = scanResult.getPackageInfo();
-        for (var pkgInfo : packageInfoList)
-        {
-            try
-            {
-                Class<?> pkgClass = Class.forName(pkgInfo.getName() + ".package-info");
-                var ann = pkgClass.getAnnotation(AbacOptions.class);
-                if (ann != null)
-                {
-                    log.debug("Found @AbacOptions on package: {}", pkgInfo.getName());
-                    return ann;
-                }
-            }
-            catch (ClassNotFoundException _) { }
-        }
-
-        return null;
+        return Discovery.singleAnnotation(AbacOptions.class).orElse(null);
     }
 
     // ── Env / placeholder helpers ───────────────────────
 
     static String env(String property, String defaultValue)
     {
-        String value = Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_ABAC_" + property, null);
-        if (value != null && !value.isBlank())
-        {
-            return value;
-        }
-        return defaultValue;
+        return Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_ABAC_" + property, defaultValue);
     }
 
     private static String resolveEnvPlaceholders(String value)
     {
-        if (value == null || !value.contains("${"))
-        {
-            return value;
-        }
-        StringBuilder result = new StringBuilder();
-        int i = 0;
-        while (i < value.length())
-        {
-            if (value.charAt(i) == '$' && i + 1 < value.length() && value.charAt(i + 1) == '{')
-            {
-                int end = value.indexOf('}', i + 2);
-                if (end > 0)
-                {
-                    String varName = value.substring(i + 2, end);
-                    String resolved = Environment.getSystemPropertyOrEnvironment(varName, "");
-                    result.append(resolved);
-                    i = end + 1;
-                    continue;
-                }
-            }
-            result.append(value.charAt(i));
-            i++;
-        }
-        return result.toString();
+        return com.guicedee.client.Environment.resolveAnnotationValue(value);
     }
 
     /**

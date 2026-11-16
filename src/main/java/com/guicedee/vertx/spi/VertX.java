@@ -34,9 +34,9 @@ public @interface VertX {
      * Defines the size of the event loop thread pool.
      * This pool is used to handle event-driven tasks such as processing HTTP requests or event bus events.
      *
-     * @return the number of threads in the event loop pool (default: 10)
+     * @return the number of threads in the event loop pool (default: -1, inherit Vert.x processor-based sizing)
      */
-    int eventLoopPoolSize() default 10;
+    int eventLoopPoolSize() default -1;
 
     /**
      * Specifies the size of the worker thread pool.
@@ -79,16 +79,16 @@ public @interface VertX {
      * Specifies the maximum time for a worker thread to execute before being flagged.
      * This allows detecting potential performance bottlenecks.
      *
-     * @return the maximum execute time (default: 10,000)
+     * @return the maximum execute time (default: 60000 milliseconds)
      */
-    long maxWorkerExecuteTime() default 10000;
+    long maxWorkerExecuteTime() default 60000;
 
     /**
      * The time unit for the maximum worker execute time.
      *
-     * @return the time unit (default: {@link TimeUnit#MINUTES})
+     * @return the time unit (default: {@link TimeUnit#MILLISECONDS})
      */
-    TimeUnit maxWorkerExecuteTimeUnit() default TimeUnit.MINUTES;
+    TimeUnit maxWorkerExecuteTimeUnit() default TimeUnit.MILLISECONDS;
 
     /**
      * Defines the size of the internal blocking thread pool.
@@ -109,9 +109,12 @@ public @interface VertX {
     /**
      * Specifies the quorum size, which is the minimum number of nodes required to form a cluster.
      *
-     * @return the quorum size (default: 5)
+     * @return the quorum size (default: 1)
      */
-    int quorumSize() default 5;
+    int quorumSize() default 1;
+
+    /** HA group name; effective only with an enabled cluster manager. */
+    String haGroup() default "__DEFAULT__";
 
     /**
      * The threshold at which a stack trace warning is logged for blocked threads.
@@ -132,23 +135,23 @@ public @interface VertX {
      * Indicates whether to prefer native transport capabilities where available.
      * Native transports may provide increased performance compared to JVM-only transport layers.
      *
-     * @return {@code true} if native transport is preferred, {@code false} otherwise (default: true)
+     * @return {@code true} if native transport is preferred, {@code false} otherwise (default: false)
      */
-    boolean preferNativeTransport() default true;
+    boolean preferNativeTransport() default false;
 
     /**
      * Indicates whether daemon threads should be used for worker and event loop threads.
      * Daemon threads do not prevent the JVM from shutting down.
      *
-     * @return {@code true} if daemon threads are used, {@code false} otherwise (default: true)
+     * @return {@code true} if daemon threads are used, {@code false} otherwise (default: false)
      */
-    boolean useDaemonThreads() default true;
+    boolean useDaemonThreads() default false;
 
     /**
      * Indicates whether the Thread Context Classloader (TCCL) is disabled.
      *
-     * @return {@code true} if TCCL is disabled, {@code false} otherwise (default: true)
+     * @return {@code true} if TCCL is disabled, {@code false} otherwise (default: false)
      */
-    boolean disableTCCL() default true;
+    boolean disableTCCL() default false;
 
 }

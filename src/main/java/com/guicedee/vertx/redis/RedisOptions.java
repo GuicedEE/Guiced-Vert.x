@@ -152,9 +152,9 @@ public @interface RedisOptions {
     String masterName() default "${REDIS_MASTER_NAME:mymaster}";
 
     /**
-     * The Redis database number. Defaults to 0.
+     * The Redis database number. Defaults to -1 (inherit the connection URI).
      */
-    int database() default 0;
+    int database() default -1;
 
     /**
      * Whether this is the default Redis binding (injectable without {@code @Named}).

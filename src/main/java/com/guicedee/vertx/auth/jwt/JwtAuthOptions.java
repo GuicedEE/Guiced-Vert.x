@@ -105,8 +105,9 @@ public @interface JwtAuthOptions
 
     /**
      * @return Leeway in seconds for exp/iat/nbf validation. 0 = strict.
+     * -1 inherits AuthOptions / VERTX_AUTH_LEEWAY; 0 explicitly disables leeway.
      */
-    int leeway() default 0;
+    int leeway() default -1;
 
     /**
      * @return Whether to ignore token expiration. Default false.

@@ -72,6 +72,25 @@ public abstract class GrpcModule<J extends GrpcModule<J>>
         }
     }
 
+    static GrpcServerOptions serverOptions(GrpcConnectionInfo info) {
+        GrpcServerOptions serverOptions = new GrpcServerOptions()
+                .setMaxMessageSize(info.getMaxMessageSize())
+                .setScheduleDeadlineAutomatically(info.isScheduleDeadlineAutomatically())
+                .setDeadlinePropagation(info.isDeadlinePropagation());
+
+        // Remove disabled protocols
+        if (!info.isGrpcWebEnabled()) {
+            serverOptions.removeEnabledProtocol(io.vertx.grpc.server.GrpcProtocol.WEB);
+            serverOptions.removeEnabledProtocol(io.vertx.grpc.server.GrpcProtocol.WEB_TEXT);
+        }
+
+        if (!info.isTranscodingEnabled()) {
+            serverOptions.removeEnabledProtocol(io.vertx.grpc.server.GrpcProtocol.TRANSCODING);
+        }
+
+        return serverOptions;
+    }
+
     private void configureConnection(GrpcConnectionInfo info) {
         log.info("📡 Configuring gRPC module '{}' — {}:{}",
                 info.getName(), info.getHost(), info.getPort());
@@ -83,16 +102,7 @@ public abstract class GrpcModule<J extends GrpcModule<J>>
                 return;
             }
 
-            // Build GrpcServerOptions
-            GrpcServerOptions serverOptions = new GrpcServerOptions()
-                    .setScheduleDeadlineAutomatically(info.isScheduleDeadlineAutomatically())
-                    .setDeadlinePropagation(info.isDeadlinePropagation());
-
-            // Remove disabled protocols
-            if (!info.isGrpcWebEnabled()) {
-                serverOptions.removeEnabledProtocol(io.vertx.grpc.server.GrpcProtocol.WEB);
-                serverOptions.removeEnabledProtocol(io.vertx.grpc.server.GrpcProtocol.WEB_TEXT);
-            }
+            GrpcServerOptions serverOptions = serverOptions(info);
 
             // Create the GrpcServer
             GrpcServer grpcServer = GrpcServer.server(vertx, serverOptions);

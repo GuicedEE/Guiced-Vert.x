@@ -15,13 +15,10 @@ import java.util.List;
  * <p>
  * Supports all 4 Redis client modes: Standalone, Sentinel, Cluster, and Replication.
  *
- * <h2>Environment Variable Pattern</h2>
- * <pre>
- * REDIS_{NAME}_CONNECTION_STRING, REDIS_{NAME}_TYPE,
- * REDIS_{NAME}_MAX_POOL_SIZE, REDIS_{NAME}_MAX_WAITING,
- * REDIS_{NAME}_MASTER_NAME, REDIS_{NAME}_PASSWORD,
- * REDIS_{NAME}_TLS, REDIS_{NAME}_PROTOCOL
- * </pre>
+ * <h2>Environment overrides</h2>
+ * Annotation discovery uses global {@code REDIS_*} keys for each definition. Named
+ * connections can be configured independently through a concrete {@link RedisModule}.
+ * See the generated configuration reference for exact keys and source precedence.
  */
 @ToString
 @EqualsAndHashCode(of = {"name"})
@@ -92,9 +89,9 @@ public class RedisConnectionInfo {
     private String masterName = "mymaster";
 
     /**
-     * The database number to select on connection. Defaults to 0.
+     * The database number to select on connection. Defaults to -1 (inherit the connection URI).
      */
-    private int database = 0;
+    private int database = -1;
 
     /**
      * If this is the default Redis binding (no @Named required).

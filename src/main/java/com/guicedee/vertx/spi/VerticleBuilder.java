@@ -123,7 +123,7 @@ public class VerticleBuilder
             // Deploy after map fully built (single global verticle)
             map.forEach((key, value) -> {
                 log.info("Deploying Global Verticle: {} - global-worker-pool", key);
-                var verticalFuture = VertXPreStartup.getVertx().deployVerticle(value, new DeploymentOptions());
+                var verticalFuture = VertXPreStartup.getVertx().deployVerticle(value, toDeploymentOptions(null));
                 verticleFutures.put(key, verticalFuture);
             });
         }
@@ -196,7 +196,7 @@ public class VerticleBuilder
                     public void start(Promise<Void> startPromise) throws Exception
                     {
                         // Name the current thread after the worker pool for observability
-                        String poolName = annotation.value();
+                        String poolName = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_WORKER_POOL_NAME", annotation.value());
                         if (poolName != null && !poolName.isEmpty())
                         {
                             Thread.currentThread().setName(poolName + "-startup");
@@ -278,13 +278,13 @@ public class VerticleBuilder
                 DeploymentOptions opts;
                 if (key.isEmpty())
                 {
-                    opts = new DeploymentOptions();
+                    opts = toDeploymentOptions(null);
                     log.info("🚀 Deploying Default Verticle for non-annotated packages");
                 }
                 else
                 {
                     Verticle ann = verticleAnnotations.get(key);
-                    opts = ann != null ? toDeploymentOptions(ann) : new DeploymentOptions();
+                    opts = ann != null ? toDeploymentOptions(ann) : toDeploymentOptions(null);
                     log.info("🚀 Deploying Verticle: {} - workerPool={}", key,
                             ann != null ? ann.value() : "default");
                 }
@@ -359,7 +359,7 @@ public class VerticleBuilder
                 Object val = params.getValue("threadingModel");
                 if (val != null)
                 {
-                    try { return ThreadingModel.valueOf(val.toString()); }
+                    try { return ThreadingModel.valueOf(((io.github.classgraph.AnnotationEnumValue) val).getValueName()); }
                     catch (IllegalArgumentException ignored) {}
                 }
                 return ThreadingModel.EVENT_LOOP;
@@ -382,7 +382,7 @@ public class VerticleBuilder
             @Override
             public String value()
             {
-                Object val = params.getValue("workerPoolName");
+                Object val = params.getValue("value");
                 return val != null ? val.toString() : "";
             }
 
@@ -397,7 +397,7 @@ public class VerticleBuilder
             public long maxWorkerExecuteTime()
             {
                 Object val = params.getValue("maxWorkerExecuteTime");
-                return val != null ? ((Number) val).longValue() : 2;
+                return val != null ? ((Number) val).longValue() : 60000;
             }
 
             @Override
@@ -406,10 +406,10 @@ public class VerticleBuilder
                 Object val = params.getValue("maxWorkerExecuteTimeUnit");
                 if (val != null)
                 {
-                    try { return TimeUnit.valueOf(val.toString()); }
+                    try { return TimeUnit.valueOf(((io.github.classgraph.AnnotationEnumValue) val).getValueName()); }
                     catch (IllegalArgumentException ignored) {}
                 }
-                return TimeUnit.MINUTES;
+                return TimeUnit.MILLISECONDS;
             }
 
             @Override
@@ -421,7 +421,7 @@ public class VerticleBuilder
                     Capabilities[] caps = new Capabilities[arr.length];
                     for (int i = 0; i < arr.length; i++)
                     {
-                        caps[i] = Capabilities.valueOf(arr[i].toString());
+                        caps[i] = Capabilities.valueOf(((io.github.classgraph.AnnotationEnumValue) arr[i]).getValueName());
                     }
                     return caps;
                 }
@@ -443,65 +443,65 @@ public class VerticleBuilder
             @Override
             public ThreadingModel threadingModel()
             {
-                String threadingStr = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_THREADING_MODEL", vertical.threadingModel().name());
+                String threadingStr = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_THREADING_MODEL", (vertical == null ? ThreadingModel.EVENT_LOOP : vertical.threadingModel()).name());
                 try
                 {
                     return ThreadingModel.valueOf(threadingStr);
                 }
                 catch (IllegalArgumentException e)
                 {
-                    return vertical.threadingModel();
+                    return (vertical == null ? ThreadingModel.EVENT_LOOP : vertical.threadingModel());
                 }
             }
 
             @Override
             public int defaultInstances()
             {
-                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_DEFAULT_INSTANCES", String.valueOf(vertical.defaultInstances())));
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_DEFAULT_INSTANCES", String.valueOf((vertical == null ? 1 : vertical.defaultInstances()))));
             }
 
             @Override
             public boolean ha()
             {
-                return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_HA", String.valueOf(vertical.ha())));
+                return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_HA", String.valueOf((vertical == null ? false : vertical.ha()))));
             }
 
             @Override
             public String value()
             {
-                return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_WORKER_POOL_NAME", vertical.value());
+                return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_WORKER_POOL_NAME", (vertical == null ? "" : vertical.value()));
             }
 
             @Override
             public int workerPoolSize()
             {
-                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_WORKER_POOL_SIZE", String.valueOf(vertical.workerPoolSize())));
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_WORKER_POOL_SIZE", String.valueOf((vertical == null ? 20 : vertical.workerPoolSize()))));
             }
 
             @Override
             public long maxWorkerExecuteTime()
             {
-                return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_MAX_WORKER_EXECUTE_TIME", String.valueOf(vertical.maxWorkerExecuteTime())));
+                return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_MAX_WORKER_EXECUTE_TIME", String.valueOf((vertical == null ? 60000L : vertical.maxWorkerExecuteTime()))));
             }
 
             @Override
             public TimeUnit maxWorkerExecuteTimeUnit()
             {
-                String unitStr = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_MAX_WORKER_EXECUTE_TIME_UNIT", vertical.maxWorkerExecuteTimeUnit().name());
+                String unitStr = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_MAX_WORKER_EXECUTE_TIME_UNIT", (vertical == null ? TimeUnit.MILLISECONDS : vertical.maxWorkerExecuteTimeUnit()).name());
                 try
                 {
                     return TimeUnit.valueOf(unitStr);
                 }
                 catch (IllegalArgumentException e)
                 {
-                    return vertical.maxWorkerExecuteTimeUnit();
+                    return (vertical == null ? TimeUnit.MILLISECONDS : vertical.maxWorkerExecuteTimeUnit());
                 }
             }
 
             @Override
             public Capabilities[] capabilities()
             {
-                return vertical.capabilities();
+                return (vertical == null ? new Capabilities[0] : vertical.capabilities());
             }
         };
 
@@ -526,14 +526,8 @@ public class VerticleBuilder
         {
             d.setWorkerPoolSize(wrapped.workerPoolSize());
         }
-        if (wrapped.maxWorkerExecuteTime() != 2)
-        {
-            d.setMaxWorkerExecuteTime(wrapped.maxWorkerExecuteTime());
-        }
-        if (wrapped.maxWorkerExecuteTimeUnit() != TimeUnit.MINUTES)
-        {
-            d.setMaxWorkerExecuteTimeUnit(wrapped.maxWorkerExecuteTimeUnit());
-        }
+        d.setMaxWorkerExecuteTime(wrapped.maxWorkerExecuteTime());
+        d.setMaxWorkerExecuteTimeUnit(wrapped.maxWorkerExecuteTimeUnit());
         return d;
     }
 

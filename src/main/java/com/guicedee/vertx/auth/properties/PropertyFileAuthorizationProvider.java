@@ -69,29 +69,7 @@ public class PropertyFileAuthorizationProvider implements IGuicedAuthorizationPr
 
     private PropertyFileAuthOptions discoverOptions(ScanResult scanResult)
     {
-        var registered = Discovery.firstRegisteredAnnotation(PropertyFileAuthOptions.class);
-        if (registered.isPresent()) return registered.get();
-        if (scanResult == null) return null;
-        var annotatedClasses = scanResult.getClassesWithAnnotation(PropertyFileAuthOptions.class);
-        for (var ci : annotatedClasses)
-        {
-            var ann = ClassLoading.loadClass(ci).getAnnotation(PropertyFileAuthOptions.class);
-            if (ann != null) return ann;
-        }
-
-        var packageInfoList = scanResult.getPackageInfo();
-        for (var pkgInfo : packageInfoList)
-        {
-            try
-            {
-                Class<?> pkgClass = Class.forName(pkgInfo.getName() + ".package-info");
-                var ann = pkgClass.getAnnotation(PropertyFileAuthOptions.class);
-                if (ann != null) return ann;
-            }
-            catch (ClassNotFoundException _) { }
-        }
-
-        return null;
+        return Discovery.singleAnnotation(PropertyFileAuthOptions.class).orElse(null);
     }
 
     public static void reset()

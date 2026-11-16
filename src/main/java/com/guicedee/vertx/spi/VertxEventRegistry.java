@@ -97,9 +97,9 @@ public class VertxEventRegistry {
             public String value() {
                 // Allow per-address override via VERTX_EVENT_ADDRESS_<NORMALIZED_ADDRESS> environment variable
                 // e.g., for address "my.event.address", check VERTX_EVENT_ADDRESS_MY_EVENT_ADDRESS
-                String normalizedAddress = originalAddress.toUpperCase().replace('.', '_').replace('-', '_');
+                String normalizedAddress = originalAddress.toUpperCase(java.util.Locale.ROOT).replace('.', '_').replace('-', '_');
                 String envKey = "VERTX_EVENT_ADDRESS_" + normalizedAddress;
-                String addressOverride = System.getProperty(envKey, System.getenv(envKey));
+                String addressOverride = com.guicedee.client.Environment.getSystemPropertyOrEnvironment(envKey, originalAddress);
                 return (addressOverride != null && !addressOverride.isEmpty()) ? addressOverride : originalAddress;
             }
 
@@ -122,18 +122,10 @@ public class VertxEventRegistry {
      */
     private static String resolveOption(String address, String optionKey, String defaultValue) {
         // 1. Per-address: VERTX_EVENT_WORKER_MY_EVENT_ADDRESS
-        String normalizedAddress = address.toUpperCase().replace('.', '_').replace('-', '_');
+        String normalizedAddress = address.toUpperCase(java.util.Locale.ROOT).replace('.', '_').replace('-', '_');
         String perAddressKey = optionKey + "_" + normalizedAddress;
-        // Check system property and env var directly to avoid Environment's empty-string fallback
-        String perAddress = System.getProperty(perAddressKey);
-        if (perAddress == null) {
-            perAddress = System.getenv(perAddressKey);
-        }
-        if (perAddress != null) {
-            return perAddress;
-        }
-        // 2. Global: VERTX_EVENT_WORKER
-        return com.guicedee.client.Environment.getSystemPropertyOrEnvironment(optionKey, defaultValue);
+        return com.guicedee.client.Environment.getSystemPropertyOrEnvironment(
+                java.util.List.of(perAddressKey, optionKey), defaultValue);
     }
 
     private static VertxEventOptions wrapEventOptions(String address, VertxEventOptions options) {
@@ -532,7 +524,7 @@ public class VertxEventRegistry {
                 if (verticleAnnotation.isPresent()) {
                     var va = verticleAnnotation.get();
                     if (va.value() != null && !va.value().isEmpty()) {
-                        resolvedPool = va.value();
+                        resolvedPool = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_VERTICLE_WORKER_POOL_NAME", va.value());
                         if (va.workerPoolSize() > 0) {
                             resolvedPoolSize = va.workerPoolSize();
                         }

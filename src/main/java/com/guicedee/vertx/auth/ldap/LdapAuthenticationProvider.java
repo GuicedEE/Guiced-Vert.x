@@ -86,81 +86,14 @@ public class LdapAuthenticationProvider implements IGuicedAuthenticationProvider
 
     private LdapAuthOptions discoverOptions(ScanResult scanResult)
     {
-        var registered = Discovery.firstRegisteredAnnotation(LdapAuthOptions.class);
-        if (registered.isPresent()) return registered.get();
-        if (scanResult == null) return null;
-        var annotatedClasses = scanResult.getClassesWithAnnotation(LdapAuthOptions.class);
-        for (var ci : annotatedClasses)
-        {
-            var ann = ClassLoading.loadClass(ci).getAnnotation(LdapAuthOptions.class);
-            if (ann != null)
-            {
-                log.debug("Found @LdapAuthOptions on class: {}", ci.getName());
-                return ann;
-            }
-        }
-
-        var packageInfoList = scanResult.getPackageInfo();
-        for (var pkgInfo : packageInfoList)
-        {
-            try
-            {
-                Class<?> pkgClass = Class.forName(pkgInfo.getName() + ".package-info");
-                var ann = pkgClass.getAnnotation(LdapAuthOptions.class);
-                if (ann != null)
-                {
-                    log.debug("Found @LdapAuthOptions on package: {}", pkgInfo.getName());
-                    return ann;
-                }
-            }
-            catch (ClassNotFoundException _) { }
-        }
-
-        return null;
+        return Discovery.singleAnnotation(LdapAuthOptions.class).orElse(null);
     }
 
     // ── Env / placeholder helpers ───────────────────────
 
     private static String resolveString(String envKey, String annotationValue, String fallback)
     {
-        String envValue = Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_LDAP_" + envKey, null);
-        if (envValue != null && !envValue.isBlank())
-        {
-            return envValue;
-        }
-        if (annotationValue != null && !annotationValue.isBlank())
-        {
-            return resolveEnvPlaceholders(annotationValue);
-        }
-        return fallback;
-    }
-
-    private static String resolveEnvPlaceholders(String value)
-    {
-        if (value == null || !value.contains("${"))
-        {
-            return value;
-        }
-        StringBuilder result = new StringBuilder();
-        int i = 0;
-        while (i < value.length())
-        {
-            if (value.charAt(i) == '$' && i + 1 < value.length() && value.charAt(i + 1) == '{')
-            {
-                int end = value.indexOf('}', i + 2);
-                if (end > 0)
-                {
-                    String varName = value.substring(i + 2, end);
-                    String resolved = Environment.getSystemPropertyOrEnvironment(varName, "");
-                    result.append(resolved);
-                    i = end + 1;
-                    continue;
-                }
-            }
-            result.append(value.charAt(i));
-            i++;
-        }
-        return result.toString();
+        return Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_LDAP_" + envKey, annotationValue != null && !annotationValue.isBlank() ? annotationValue : fallback);
     }
 
     public static void reset()

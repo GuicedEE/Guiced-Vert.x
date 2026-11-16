@@ -15,7 +15,7 @@ public @interface FileSystemOptions
      *
      * @return {@code true} if class path resolution is enabled, {@code false} otherwise
      */
-    boolean classPathResolvingEnabled() default false;
+    boolean classPathResolvingEnabled() default true;
 
     /**
      * Enables or disables file caching for class path resolution.
@@ -23,14 +23,17 @@ public @interface FileSystemOptions
      *
      * @return {@code true} if file caching is enabled, {@code false} otherwise
      */
-    boolean fileCachingEnabled() default false;
+    boolean fileCachingEnabled() default true;
 
     /**
      * The directory used for file caching during class path resolution.
-     * Defaults to the system's temporary directory or a dedicated cache directory.
+     * Empty inherits the upstream cache directory, including Vert.x JVM property overrides.
      *
      * @return the path to the file caching directory (default: system specific)
      */
     String fileCacheDir() default "";
+
+    /** Use the cache directory exactly, without a generated suffix. */
+    boolean fileCacheDirAsExactPath() default false;
 
 }

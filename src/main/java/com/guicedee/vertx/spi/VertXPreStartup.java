@@ -95,7 +95,7 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
 
             @Override
             public int eventLoopPoolSize() {
-                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_LOOP_POOL_SIZE", String.valueOf((annotation == null ? options.getEventLoopPoolSize() : annotation.eventLoopPoolSize()))));
+                return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENT_LOOP_POOL_SIZE", String.valueOf((annotation == null || annotation.eventLoopPoolSize() == -1 ? options.getEventLoopPoolSize() : annotation.eventLoopPoolSize()))));
             }
 
             @Override
@@ -141,6 +141,11 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
             @Override
             public boolean haEnabled() {
                 return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_HA_ENABLED", String.valueOf((annotation == null ? options.isHAEnabled() : annotation.haEnabled()))));
+            }
+
+            @Override
+            public String haGroup() {
+                return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_HA_GROUP", annotation == null ? options.getHAGroup() : annotation.haGroup());
             }
 
             @Override
@@ -197,264 +202,80 @@ public class VertXPreStartup implements IGuicePreStartup<VertXPreStartup>, IGuic
                 .setPreferNativeTransport(annotation.preferNativeTransport())
                 .setHAEnabled(annotation.haEnabled())
                 .setQuorumSize(annotation.quorumSize())
+                .setHAGroup(annotation.haGroup())
+                .setUseDaemonThread(annotation.useDaemonThreads())
                 .setWarningExceptionTime(annotation.warningExceptionTime())
+                .setWarningExceptionTimeUnit(annotation.warningExceptionTimeUnit())
                 .setDisableTCCL(annotation.disableTCCL());
     }
 
     private void processMetricsOptions(VertxOptions options) {
-        var metricsConfig = Discovery.annotatedClasses(MetricsOptions.class);
-        if (metricsConfig.size() == 1) {
-            var clazz = metricsConfig.getFirst();
-            MetricsOptions metricsAnnotation = clazz.getDeclaredAnnotation(MetricsOptions.class);
-            if (metricsAnnotation != null) {
-                MetricsOptions wrappedMetrics = new MetricsOptions() {
-                    @Override
-                    public Class<? extends java.lang.annotation.Annotation> annotationType() {
-                        return MetricsOptions.class;
-                    }
-
-                    @Override
-                    public boolean enabled() {
-                        return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_METRICS_ENABLED", String.valueOf(metricsAnnotation.enabled())));
-                    }
-                };
-                options
-                        .setMetricsOptions(new io.vertx.core.metrics.MetricsOptions().setEnabled(wrappedMetrics.enabled()));
-            }
-        }
+        MetricsOptions annotation = singleConfiguration(MetricsOptions.class);
+        var resolved = new io.vertx.core.metrics.MetricsOptions();
+        resolved.setEnabled(Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_METRICS_ENABLED", String.valueOf(annotation == null ? resolved.isEnabled() : annotation.enabled()))));
+        options.setMetricsOptions(resolved);
     }
 
     private void processFileSystemOptions(VertxOptions options) {
-        var fileSystemConfig = Discovery.annotatedClasses(FileSystemOptions.class);
-        if (fileSystemConfig.size() == 1) {
-            var clazz = fileSystemConfig.getFirst();
-            FileSystemOptions fileSystemAnnotation = clazz.getDeclaredAnnotation(FileSystemOptions.class);
-            if (fileSystemAnnotation != null) {
-                FileSystemOptions wrappedFS = new FileSystemOptions() {
-                    @Override
-                    public Class<? extends java.lang.annotation.Annotation> annotationType() {
-                        return FileSystemOptions.class;
-                    }
-
-                    @Override
-                    public boolean classPathResolvingEnabled() {
-                        return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_FILESYSTEM_CLASSPATH_RESOLVING", String.valueOf(fileSystemAnnotation.classPathResolvingEnabled())));
-                    }
-
-                    @Override
-                    public boolean fileCachingEnabled() {
-                        return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_FILESYSTEM_FILE_CACHING", String.valueOf(fileSystemAnnotation.fileCachingEnabled())));
-                    }
-
-                    @Override
-                    public String fileCacheDir() {
-                        return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_FILESYSTEM_FILE_CACHE_DIR", fileSystemAnnotation.fileCacheDir());
-                    }
-                };
-                options
-                        .setFileSystemOptions(new io.vertx.core.file.FileSystemOptions()
-                                .setClassPathResolvingEnabled(wrappedFS.classPathResolvingEnabled())
-                                .setFileCachingEnabled(wrappedFS.fileCachingEnabled())
-                                .setFileCacheDir(wrappedFS.fileCacheDir())
-                        );
-            }
-        }
+        FileSystemOptions annotation = singleConfiguration(FileSystemOptions.class);
+        var resolved = new io.vertx.core.file.FileSystemOptions();
+        resolved.setClassPathResolvingEnabled(Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_FILESYSTEM_CLASSPATH_RESOLVING", String.valueOf(annotation == null ? resolved.isClassPathResolvingEnabled() : annotation.classPathResolvingEnabled()))));
+        resolved.setFileCachingEnabled(Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_FILESYSTEM_FILE_CACHING", String.valueOf(annotation == null ? resolved.isFileCachingEnabled() : annotation.fileCachingEnabled()))));
+        String fileCacheDir = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_FILESYSTEM_FILE_CACHE_DIR", annotation == null ? "" : annotation.fileCacheDir());
+        if (!fileCacheDir.isBlank()) resolved.setFileCacheDir(fileCacheDir);
+        resolved.setFileCacheDirAsExactPath(Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_FILESYSTEM_FILE_CACHE_DIR_AS_EXACT_PATH", String.valueOf(annotation == null ? resolved.isFileCacheDirAsExactPath() : annotation.fileCacheDirAsExactPath()))));
+        options.setFileSystemOptions(resolved);
     }
 
     private void processEventBusOptions(VertxOptions options) {
-        var eventBusConfig = Discovery.annotatedClasses(EventBusOptions.class);
-        if (eventBusConfig.size() == 1) {
-            var clazz = eventBusConfig.getFirst();
-            EventBusOptions eventBusAnnotation = clazz.getDeclaredAnnotation(EventBusOptions.class);
-            if (eventBusAnnotation != null) {
-                EventBusOptions wrappedEB = new EventBusOptions() {
-                    @Override
-                    public Class<? extends java.lang.annotation.Annotation> annotationType() {
-                        return EventBusOptions.class;
-                    }
-
-                    @Override
-                    public String clusterPublicHost() {
-                        return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLUSTER_PUBLIC_HOST", eventBusAnnotation.clusterPublicHost());
-                    }
-
-                    @Override
-                    public int clusterPublicPort() {
-                        return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLUSTER_PUBLIC_PORT", String.valueOf(eventBusAnnotation.clusterPublicPort())));
-                    }
-
-                    @Override
-                    public long clusterPingInterval() {
-                        return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLUSTER_PING_INTERVAL", String.valueOf(eventBusAnnotation.clusterPingInterval())));
-                    }
-
-                    @Override
-                    public long clusterPingReplyInterval() {
-                        return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLUSTER_PING_REPLY_INTERVAL", String.valueOf(eventBusAnnotation.clusterPingReplyInterval())));
-                    }
-
-                    @Override
-                    public String host() {
-                        return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_HOST", eventBusAnnotation.host());
-                    }
-
-                    @Override
-                    public int port() {
-                        return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_PORT", String.valueOf(eventBusAnnotation.port())));
-                    }
-
-                    @Override
-                    public int acceptBacklog() {
-                        return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_ACCEPT_BACKLOG", String.valueOf(eventBusAnnotation.acceptBacklog())));
-                    }
-
-                    @Override
-                    public int reconnectAttempts() {
-                        return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_RECONNECT_ATTEMPTS", String.valueOf(eventBusAnnotation.reconnectAttempts())));
-                    }
-
-                    @Override
-                    public long reconnectInterval() {
-                        return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_RECONNECT_INTERVAL", String.valueOf(eventBusAnnotation.reconnectInterval())));
-                    }
-
-                    @Override
-                    public int connectTimeout() {
-                        return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CONNECT_TIMEOUT", String.valueOf(eventBusAnnotation.connectTimeout())));
-                    }
-
-                    @Override
-                    public boolean trustAll() {
-                        return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_TRUST_ALL", String.valueOf(eventBusAnnotation.trustAll())));
-                    }
-
-                    @Override
-                    public String clientAuth() {
-                        return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLIENT_AUTH", eventBusAnnotation.clientAuth());
-                    }
-                };
-                options
-                        .setEventBusOptions(new io.vertx.core.eventbus.EventBusOptions()
-                                .setClusterPublicHost(wrappedEB.clusterPublicHost())
-                                .setClusterPublicPort(wrappedEB.clusterPublicPort())
-                                .setClusterPingInterval(wrappedEB.clusterPingInterval())
-                                .setClusterPingReplyInterval(wrappedEB.clusterPingReplyInterval())
-                                .setHost(wrappedEB.host())
-                                .setPort(wrappedEB.port())
-                                .setAcceptBacklog(wrappedEB.acceptBacklog())
-                                .setReconnectAttempts(wrappedEB.reconnectAttempts())
-                                .setReconnectInterval(wrappedEB.reconnectInterval())
-                                .setConnectTimeout(wrappedEB.connectTimeout())
-                                .setTrustAll(wrappedEB.trustAll())
-                                .setClientAuth(io.vertx.core.http.ClientAuth.valueOf(wrappedEB.clientAuth()))
-                        );
-            }
-        }
+        EventBusOptions annotation = singleConfiguration(EventBusOptions.class);
+        var resolved = new io.vertx.core.eventbus.EventBusOptions();
+        String clusterPublicHost = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLUSTER_PUBLIC_HOST", annotation == null ? "" : annotation.clusterPublicHost());
+        if (!clusterPublicHost.isBlank()) resolved.setClusterPublicHost(clusterPublicHost);
+        int clusterPublicPort = Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLUSTER_PUBLIC_PORT", String.valueOf(annotation == null ? resolved.getClusterPublicPort() : annotation.clusterPublicPort())));
+        if (clusterPublicPort != -1) resolved.setClusterPublicPort(clusterPublicPort);
+        resolved.setClusterPingInterval(Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLUSTER_PING_INTERVAL", String.valueOf(annotation == null ? resolved.getClusterPingInterval() : annotation.clusterPingInterval()))));
+        resolved.setClusterPingReplyInterval(Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLUSTER_PING_REPLY_INTERVAL", String.valueOf(annotation == null ? resolved.getClusterPingReplyInterval() : annotation.clusterPingReplyInterval()))));
+        String host = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_HOST", annotation == null ? "" : annotation.host());
+        if (!host.isBlank()) resolved.setHost(host);
+        resolved.setPort(Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_PORT", String.valueOf(annotation == null ? resolved.getPort() : annotation.port()))));
+        resolved.setAcceptBacklog(Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_ACCEPT_BACKLOG", String.valueOf(annotation == null ? resolved.getAcceptBacklog() : annotation.acceptBacklog()))));
+        resolved.setReconnectAttempts(Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_RECONNECT_ATTEMPTS", String.valueOf(annotation == null ? resolved.getReconnectAttempts() : annotation.reconnectAttempts()))));
+        resolved.setReconnectInterval(Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_RECONNECT_INTERVAL", String.valueOf(annotation == null ? resolved.getReconnectInterval() : annotation.reconnectInterval()))));
+        resolved.setConnectTimeout(Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CONNECT_TIMEOUT", String.valueOf(annotation == null ? resolved.getConnectTimeout() : annotation.connectTimeout()))));
+        resolved.setTrustAll(Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_TRUST_ALL", String.valueOf(annotation == null ? resolved.isTrustAll() : annotation.trustAll()))));
+        resolved.setClientAuth(io.vertx.core.http.ClientAuth.valueOf(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_EVENTBUS_CLIENT_AUTH", annotation == null ? resolved.getClientAuth().name() : annotation.clientAuth())));
+        options.setEventBusOptions(resolved);
     }
 
     private void processAddressResolverOptions(VertxOptions options) {
-        var addressResolverConfig = Discovery.annotatedClasses(AddressResolverOptions.class);
-        if (addressResolverConfig.size() == 1) {
-            var clazz = addressResolverConfig.getFirst();
-            AddressResolverOptions addressResolverAnnotation = clazz.getDeclaredAnnotation(AddressResolverOptions.class);
-            if (addressResolverAnnotation != null) {
-                AddressResolverOptions wrappedAR = new AddressResolverOptions() {
-                    @Override
-                    public Class<? extends java.lang.annotation.Annotation> annotationType() {
-                        return AddressResolverOptions.class;
-                    }
+        AddressResolverOptions annotation = singleConfiguration(AddressResolverOptions.class);
+        var resolved = new io.vertx.core.dns.AddressResolverOptions();
+        String hostsPath = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_HOSTS_PATH", annotation == null ? "" : annotation.hostsPath());
+        if (!hostsPath.isBlank()) resolved.setHostsPath(hostsPath);
+        resolved.setHostsRefreshPeriod(Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_HOSTS_REFRESH_PERIOD", String.valueOf(annotation == null ? resolved.getHostsRefreshPeriod() : annotation.hostsRefreshPeriod()))));
+        resolved.setHostsRefreshPeriodUnit(java.util.concurrent.TimeUnit.valueOf(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_HOSTS_REFRESH_PERIOD_UNIT", annotation == null ? java.util.concurrent.TimeUnit.MILLISECONDS.name() : annotation.hostsRefreshPeriodUnit().name())));
+        String servers = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_SERVERS", ",", annotation == null ? new String[0] : annotation.servers());
+        if (!servers.isBlank()) resolved.setServers(java.util.Arrays.stream(servers.split(",")).map(String::trim).filter(v -> !v.isEmpty()).toList());
+        resolved.setRotateServers(Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_ROTATE_SERVERS", String.valueOf(annotation == null ? resolved.isRotateServers() : annotation.rotateServers()))));
+        resolved.setCacheMinTimeToLive(Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_CACHE_MIN_TTL", String.valueOf(annotation == null ? resolved.getCacheMinTimeToLive() : annotation.cacheMinTimeToLive()))));
+        resolved.setCacheMaxTimeToLive(Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_CACHE_MAX_TTL", String.valueOf(annotation == null ? resolved.getCacheMaxTimeToLive() : annotation.cacheMaxTimeToLive()))));
+        resolved.setCacheNegativeTimeToLive(Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_CACHE_NEGATIVE_TTL", String.valueOf(annotation == null ? resolved.getCacheNegativeTimeToLive() : annotation.cacheNegativeTimeToLive()))));
+        resolved.setQueryTimeout(Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_QUERY_TIMEOUT", String.valueOf(annotation == null ? resolved.getQueryTimeout() : annotation.queryTimeout()))));
+        resolved.setMaxQueries(Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_MAX_QUERIES", String.valueOf(annotation == null ? resolved.getMaxQueries() : annotation.maxQueries()))));
+        resolved.setRdFlag(Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_RD_FLAG", String.valueOf(annotation == null ? resolved.getRdFlag() : annotation.rdFlag()))));
+        String searchDomains = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_SEARCH_DOMAINS", ",", annotation == null ? new String[0] : annotation.searchDomains());
+        if (!searchDomains.isBlank()) resolved.setSearchDomains(java.util.Arrays.stream(searchDomains.split(",")).map(String::trim).filter(v -> !v.isEmpty()).toList());
+        resolved.setNdots(Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_NDOTS", String.valueOf(annotation == null || annotation.ndots() == -1 ? resolved.getNdots() : annotation.ndots()))));
+        resolved.setOptResourceEnabled(Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_OPT_RESOURCE_ENABLED", String.valueOf(annotation == null ? resolved.isOptResourceEnabled() : annotation.optResourceEnabled()))));
+        resolved.setRoundRobinInetAddress(Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_ROUND_ROBIN", String.valueOf(annotation == null ? resolved.isRoundRobinInetAddress() : annotation.roundRobinInetAddress()))));
+        options.setAddressResolverOptions(resolved);
+    }
 
-                    @Override
-                    public String hostsPath() {
-                        return com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_HOSTS_PATH", addressResolverAnnotation.hostsPath());
-                    }
-
-                    @Override
-                    public int hostsRefreshPeriod() {
-                        return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_HOSTS_REFRESH_PERIOD", String.valueOf(addressResolverAnnotation.hostsRefreshPeriod())));
-                    }
-
-                    @Override
-                    public String[] servers() {
-                        String serversStr = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_SERVERS", String.join(",", addressResolverAnnotation.servers()));
-                        return serversStr.isBlank() ? new String[0] : serversStr.split(",");
-                    }
-
-                    @Override
-                    public boolean rotateServers() {
-                        return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_ROTATE_SERVERS", String.valueOf(addressResolverAnnotation.rotateServers())));
-                    }
-
-                    @Override
-                    public int cacheMinTimeToLive() {
-                        return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_CACHE_MIN_TTL", String.valueOf(addressResolverAnnotation.cacheMinTimeToLive())));
-                    }
-
-                    @Override
-                    public int cacheMaxTimeToLive() {
-                        return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_CACHE_MAX_TTL", String.valueOf(addressResolverAnnotation.cacheMaxTimeToLive())));
-                    }
-
-                    @Override
-                    public int cacheNegativeTimeToLive() {
-                        return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_CACHE_NEGATIVE_TTL", String.valueOf(addressResolverAnnotation.cacheNegativeTimeToLive())));
-                    }
-
-                    @Override
-                    public long queryTimeout() {
-                        return Long.parseLong(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_QUERY_TIMEOUT", String.valueOf(addressResolverAnnotation.queryTimeout())));
-                    }
-
-                    @Override
-                    public int maxQueries() {
-                        return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_MAX_QUERIES", String.valueOf(addressResolverAnnotation.maxQueries())));
-                    }
-
-                    @Override
-                    public boolean rdFlag() {
-                        return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_RD_FLAG", String.valueOf(addressResolverAnnotation.rdFlag())));
-                    }
-
-                    @Override
-                    public String[] searchDomains() {
-                        String domainsStr = com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_SEARCH_DOMAINS", String.join(",", addressResolverAnnotation.searchDomains()));
-                        return domainsStr.isBlank() ? new String[0] : domainsStr.split(",");
-                    }
-
-                    @Override
-                    public int ndots() {
-                        return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_NDOTS", String.valueOf(addressResolverAnnotation.ndots())));
-                    }
-
-                    @Override
-                    public boolean optResourceEnabled() {
-                        return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_OPT_RESOURCE_ENABLED", String.valueOf(addressResolverAnnotation.optResourceEnabled())));
-                    }
-
-                    @Override
-                    public boolean roundRobinInetAddress() {
-                        return Boolean.parseBoolean(com.guicedee.client.Environment.getSystemPropertyOrEnvironment("VERTX_ADDR_RESOLVER_ROUND_ROBIN", String.valueOf(addressResolverAnnotation.roundRobinInetAddress())));
-                    }
-                };
-                options
-                        .setAddressResolverOptions(new io.vertx.core.dns.AddressResolverOptions()
-                                .setHostsPath(wrappedAR.hostsPath())
-                                .setHostsRefreshPeriod(wrappedAR.hostsRefreshPeriod())
-                                .setServers(List.of(wrappedAR.servers()))
-                                .setRotateServers(wrappedAR.rotateServers())
-                                .setCacheMinTimeToLive(wrappedAR.cacheMinTimeToLive())
-                                .setCacheMaxTimeToLive(wrappedAR.cacheMaxTimeToLive())
-                                .setCacheNegativeTimeToLive(wrappedAR.cacheNegativeTimeToLive())
-                                .setQueryTimeout(wrappedAR.queryTimeout())
-                                .setMaxQueries(wrappedAR.maxQueries())
-                                .setRdFlag(wrappedAR.rdFlag())
-                                .setSearchDomains(List.of(wrappedAR.searchDomains()))
-                                .setNdots(wrappedAR.ndots())
-                                .setOptResourceEnabled(wrappedAR.optResourceEnabled())
-                                .setRoundRobinInetAddress(wrappedAR.roundRobinInetAddress())
-                        );
-            }
-        }
+    private static <A extends java.lang.annotation.Annotation> A singleConfiguration(Class<A> type) {
+        var annotations = Discovery.annotations(type);
+        if (annotations.size() > 1) throw new IllegalStateException("Only one " + type.getSimpleName() + " configuration may be defined");
+        return annotations.isEmpty() ? null : annotations.getFirst();
     }
 
     private boolean clusterMode = false;

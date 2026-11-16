@@ -62,6 +62,9 @@ public @interface AddressResolverOptions
      */
     int hostsRefreshPeriod() default 0;
 
+    /** Unit for hostsRefreshPeriod; milliseconds preserves the GuicedEE contract. */
+    java.util.concurrent.TimeUnit hostsRefreshPeriodUnit() default java.util.concurrent.TimeUnit.MILLISECONDS;
+
     // DNS SERVERS CONFIGURATION
 
     /**
@@ -141,7 +144,7 @@ public @interface AddressResolverOptions
      *
      * @return the `ndots` value (default: system-defined, typically 1 on non-Linux environments)
      */
-    int ndots() default 1;
+    int ndots() default -1;
 
     // OTHER OPTIONS
 

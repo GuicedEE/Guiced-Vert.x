@@ -64,58 +64,12 @@ public class HtdigestAuthenticationProvider implements IGuicedAuthenticationProv
 
     private static String resolvePath(HtdigestAuthOptions ann)
     {
-        String envPath = Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_HTDIGEST_PATH", null);
-        if (envPath != null && !envPath.isBlank()) return envPath;
-        String annotationPath = ann.path();
-        if (annotationPath != null && annotationPath.contains("${"))
-        {
-            StringBuilder result = new StringBuilder();
-            int i = 0;
-            while (i < annotationPath.length())
-            {
-                if (annotationPath.charAt(i) == '$' && i + 1 < annotationPath.length() && annotationPath.charAt(i + 1) == '{')
-                {
-                    int end = annotationPath.indexOf('}', i + 2);
-                    if (end > 0)
-                    {
-                        result.append(Environment.getSystemPropertyOrEnvironment(annotationPath.substring(i + 2, end), ""));
-                        i = end + 1;
-                        continue;
-                    }
-                }
-                result.append(annotationPath.charAt(i));
-                i++;
-            }
-            return result.toString();
-        }
-        return annotationPath;
+        return Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_HTDIGEST_PATH", ann.path());
     }
 
     private HtdigestAuthOptions discoverOptions(ScanResult scanResult)
     {
-        var registered = Discovery.firstRegisteredAnnotation(HtdigestAuthOptions.class);
-        if (registered.isPresent()) return registered.get();
-        if (scanResult == null) return null;
-        var annotatedClasses = scanResult.getClassesWithAnnotation(HtdigestAuthOptions.class);
-        for (var ci : annotatedClasses)
-        {
-            var ann = ClassLoading.loadClass(ci).getAnnotation(HtdigestAuthOptions.class);
-            if (ann != null) return ann;
-        }
-
-        var packageInfoList = scanResult.getPackageInfo();
-        for (var pkgInfo : packageInfoList)
-        {
-            try
-            {
-                Class<?> pkgClass = Class.forName(pkgInfo.getName() + ".package-info");
-                var ann = pkgClass.getAnnotation(HtdigestAuthOptions.class);
-                if (ann != null) return ann;
-            }
-            catch (ClassNotFoundException _) { }
-        }
-
-        return null;
+        return Discovery.singleAnnotation(HtdigestAuthOptions.class).orElse(null);
     }
 
     public static void reset()

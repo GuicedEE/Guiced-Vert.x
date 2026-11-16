@@ -115,26 +115,16 @@ public class GreetingPublisher {
 }
 ```
 
-### Throttling
+### Configuration contract
 
-Publisher-side throttling prevents flooding without message loss:
-
-- `publish()` and fire-and-forget `send()` are enqueued (FIFO) and drained at a configurable rate (default 50 ms)
-- `request()` remains immediate — no timeouts introduced
-- Per-instance queues — each publisher throttles independently
-
-| Environment variable | Default | Purpose |
-|---|---|---|
-| `VERTX_PUBLISH_THROTTLE_MS` | `50` | Global throttle period (0 = disabled) |
-| `VERTX_PUBLISH_THROTTLE_MS_<ADDR>` | — | Per-address override |
-| `VERTX_PUBLISH_QUEUE_WARN` | `1000` | Backlog warning threshold |
-| `VERTX_PUBLISH_QUEUE_WARN_<ADDR>` | — | Per-address warning threshold |
-
-> Address normalization: upper-case, replace `.` and `-` with `_` (e.g. `orders.events` → `ORDERS_EVENTS`)
+The [Vert.x 5.2.3 reference](../website/docs/configuration/README.md) records
+annotation attributes, environment keys, units, defaults and activation requirements.
+Publisher throttling environment keys are not implemented. Event ordering, batch and
+resume options are reserved metadata and do not implement those behaviors.
 
 ## ⚙️ Runtime Overrides
 
-Override event bus addresses and consumer options at runtime via system properties or environment variables:
+Override event bus addresses and consumer options at runtime via system properties, environment variables, `.env.local` or `.env`:
 
 | Variable | Type | Purpose |
 |---|---|---|

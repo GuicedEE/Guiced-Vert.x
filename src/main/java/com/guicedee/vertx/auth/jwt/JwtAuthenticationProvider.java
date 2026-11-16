@@ -166,27 +166,9 @@ public class JwtAuthenticationProvider implements IGuicedAuthenticationProvider
         jwtOpts.setAlgorithm(algorithm);
 
         // Multiple audiences
-        String envAudience = env("AUDIENCE", null);
-        if (envAudience != null && !envAudience.isBlank())
-        {
-            for (String aud : envAudience.split(","))
-            {
-                if (!aud.trim().isBlank())
-                {
-                    jwtOpts.addAudience(aud.trim());
-                }
-            }
-        }
-        else
-        {
-            for (String aud : ann.audience())
-            {
-                String resolved = resolveEnvPlaceholders(aud);
-                if (!resolved.isBlank())
-                {
-                    jwtOpts.addAudience(resolved);
-                }
-            }
+        String audiences = Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_JWT_AUDIENCE", ",", ann.audience());
+        for (String audience : audiences.split(",")) {
+            if (!audience.isBlank()) jwtOpts.addAudience(audience.trim());
         }
 
         String issuer = resolveString("ISSUER", ann.issuer(), "");
@@ -201,7 +183,7 @@ public class JwtAuthenticationProvider implements IGuicedAuthenticationProvider
             jwtOpts.setSubject(subject);
         }
 
-        int leeway = Integer.parseInt(env("LEEWAY", String.valueOf(ann.leeway())));
+        int leeway = Integer.parseInt(env("LEEWAY", String.valueOf(ann.leeway() < 0 ? com.guicedee.vertx.auth.VertxAuthPreStartup.resolveLeeway() : ann.leeway())));
         if (leeway > 0)
         {
             jwtOpts.setLeeway(leeway);
@@ -228,93 +210,19 @@ public class JwtAuthenticationProvider implements IGuicedAuthenticationProvider
 
     private JwtAuthOptions discoverJwtAuthOptions(ScanResult scanResult)
     {
-        var registered = Discovery.firstRegisteredAnnotation(JwtAuthOptions.class);
-        if (registered.isPresent()) return registered.get();
-        if (scanResult == null) return null;
-        // Check annotated classes
-        var annotatedClasses = scanResult.getClassesWithAnnotation(JwtAuthOptions.class);
-        for (var ci : annotatedClasses)
-        {
-            var ann = ClassLoading.loadClass(ci).getAnnotation(JwtAuthOptions.class);
-            if (ann != null)
-            {
-                log.debug("Found @JwtAuthOptions on class: {}", ci.getName());
-                return ann;
-            }
-        }
-
-        // Check package-info
-        var packageInfoList = scanResult.getPackageInfo();
-        for (var pkgInfo : packageInfoList)
-        {
-            try
-            {
-                Class<?> pkgClass = Class.forName(pkgInfo.getName() + ".package-info");
-                var ann = pkgClass.getAnnotation(JwtAuthOptions.class);
-                if (ann != null)
-                {
-                    log.debug("Found @JwtAuthOptions on package: {}", pkgInfo.getName());
-                    return ann;
-                }
-            }
-            catch (ClassNotFoundException _) { }
-        }
-
-        return null;
+        return Discovery.singleAnnotation(JwtAuthOptions.class).orElse(null);
     }
 
     // ── Env / placeholder helpers ───────────────────────
 
     static String env(String property, String defaultValue)
     {
-        String value = Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_JWT_" + property, null);
-        if (value != null && !value.isBlank())
-        {
-            return value;
-        }
-        return defaultValue;
+        return Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_JWT_" + property, defaultValue);
     }
 
     private static String resolveString(String envKey, String annotationValue, String fallback)
     {
-        String envValue = env(envKey, null);
-        if (envValue != null && !envValue.isBlank())
-        {
-            return envValue;
-        }
-        if (annotationValue != null && !annotationValue.isBlank())
-        {
-            return resolveEnvPlaceholders(annotationValue);
-        }
-        return fallback;
-    }
-
-    private static String resolveEnvPlaceholders(String value)
-    {
-        if (value == null || !value.contains("${"))
-        {
-            return value;
-        }
-        StringBuilder result = new StringBuilder();
-        int i = 0;
-        while (i < value.length())
-        {
-            if (value.charAt(i) == '$' && i + 1 < value.length() && value.charAt(i + 1) == '{')
-            {
-                int end = value.indexOf('}', i + 2);
-                if (end > 0)
-                {
-                    String varName = value.substring(i + 2, end);
-                    String resolved = Environment.getSystemPropertyOrEnvironment(varName, "");
-                    result.append(resolved);
-                    i = end + 1;
-                    continue;
-                }
-            }
-            result.append(value.charAt(i));
-            i++;
-        }
-        return result.toString();
+        return env(envKey, annotationValue != null && !annotationValue.isBlank() ? annotationValue : fallback);
     }
 
     /**

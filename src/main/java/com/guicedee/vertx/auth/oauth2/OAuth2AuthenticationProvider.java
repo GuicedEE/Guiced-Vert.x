@@ -76,7 +76,9 @@ public class OAuth2AuthenticationProvider implements IGuicedAuthenticationProvid
         try
         {
             io.vertx.ext.auth.oauth2.OAuth2Options vertxOpts = buildVertxOAuth2Options(oauth2Options, clientId, clientSecret);
-            oauth2Auth = createProvider(vertx, vertxOpts, provider, clientId, clientSecret);
+            oauth2Auth = new ConfiguredOAuth2Auth(createProvider(vertx, vertxOpts, provider, clientId, clientSecret),
+                    resolveString("SCOPES", oauth2Options.scopes(), ""),
+                    resolveString("REDIRECT_URI", oauth2Options.redirectUri(), ""));
 
             // Install a debounced missing-key handler for JWK rotation
             installMissingKeyHandler(oauth2Auth);
@@ -191,7 +193,7 @@ public class OAuth2AuthenticationProvider implements IGuicedAuthenticationProvid
         {
             jwtOpts.setIssuer(issuer);
         }
-        int leeway = Integer.parseInt(env("JWT_LEEWAY", String.valueOf(jwt.leeway())));
+        int leeway = Integer.parseInt(env("JWT_LEEWAY", String.valueOf(jwt.leeway() < 0 ? com.guicedee.vertx.auth.VertxAuthPreStartup.resolveLeeway() : jwt.leeway())));
         if (leeway > 0)
         {
             jwtOpts.setLeeway(leeway);
@@ -229,7 +231,7 @@ public class OAuth2AuthenticationProvider implements IGuicedAuthenticationProvid
             }
             if (readTimeout > 0)
             {
-                httpOpts.setIdleTimeout(readTimeout / 1000);
+                httpOpts.setIdleTimeout(readTimeout).setIdleTimeoutUnit(java.util.concurrent.TimeUnit.MILLISECONDS);
             }
             opts.setHttpClientOptions(httpOpts);
         }
@@ -262,93 +264,19 @@ public class OAuth2AuthenticationProvider implements IGuicedAuthenticationProvid
 
     private OAuth2Options discoverOAuth2Options(ScanResult scanResult)
     {
-        var registered = Discovery.firstRegisteredAnnotation(OAuth2Options.class);
-        if (registered.isPresent()) return registered.get();
-        if (scanResult == null) return null;
-        // Check annotated classes
-        var annotatedClasses = scanResult.getClassesWithAnnotation(OAuth2Options.class);
-        for (var ci : annotatedClasses)
-        {
-            var ann = ClassLoading.loadClass(ci).getAnnotation(OAuth2Options.class);
-            if (ann != null)
-            {
-                log.debug("Found @OAuth2Options on class: {}", ci.getName());
-                return ann;
-            }
-        }
-
-        // Check package-info
-        var packageInfoList = scanResult.getPackageInfo();
-        for (var pkgInfo : packageInfoList)
-        {
-            try
-            {
-                Class<?> pkgClass = Class.forName(pkgInfo.getName() + ".package-info");
-                var ann = pkgClass.getAnnotation(OAuth2Options.class);
-                if (ann != null)
-                {
-                    log.debug("Found @OAuth2Options on package: {}", pkgInfo.getName());
-                    return ann;
-                }
-            }
-            catch (ClassNotFoundException _) { }
-        }
-
-        return null;
+        return Discovery.singleAnnotation(OAuth2Options.class).orElse(null);
     }
 
     // ── Env / placeholder helpers ───────────────────────
 
     static String env(String property, String defaultValue)
     {
-        String value = Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_OAUTH2_" + property, null);
-        if (value != null && !value.isBlank())
-        {
-            return value;
-        }
-        return defaultValue;
+        return Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_OAUTH2_" + property, defaultValue);
     }
 
     private static String resolveString(String envKey, String annotationValue, String fallback)
     {
-        String envValue = env(envKey, null);
-        if (envValue != null && !envValue.isBlank())
-        {
-            return envValue;
-        }
-        if (annotationValue != null && !annotationValue.isBlank())
-        {
-            return resolveEnvPlaceholders(annotationValue);
-        }
-        return fallback;
-    }
-
-    private static String resolveEnvPlaceholders(String value)
-    {
-        if (value == null || !value.contains("${"))
-        {
-            return value;
-        }
-        StringBuilder result = new StringBuilder();
-        int i = 0;
-        while (i < value.length())
-        {
-            if (value.charAt(i) == '$' && i + 1 < value.length() && value.charAt(i + 1) == '{')
-            {
-                int end = value.indexOf('}', i + 2);
-                if (end > 0)
-                {
-                    String varName = value.substring(i + 2, end);
-                    String resolved = Environment.getSystemPropertyOrEnvironment(varName, "");
-                    result.append(resolved);
-                    i = end + 1;
-                    continue;
-                }
-            }
-            result.append(value.charAt(i));
-            i++;
-        }
-        return result.toString();
+        return env(envKey, annotationValue != null && !annotationValue.isBlank() ? annotationValue : fallback);
     }
 
     private static void setIfNotBlank(String value, java.util.function.Consumer<String> setter)

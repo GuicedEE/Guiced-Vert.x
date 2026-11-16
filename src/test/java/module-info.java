@@ -8,6 +8,7 @@ open module guiced.vertx.test {
     requires io.vertx.core;
     requires io.vertx.auth.common;
     requires io.vertx.auth.jwt;
+    requires io.vertx.auth.oauth2;
     requires io.vertx.auth.properties;
     requires io.vertx.auth.abac;
     requires io.vertx.auth.htpasswd;

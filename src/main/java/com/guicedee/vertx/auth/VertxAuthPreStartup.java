@@ -207,7 +207,8 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
         if (scanResult == null) return false;
         for (String annotationName : AUTH_OPTION_ANNOTATIONS)
         {
-            if (!scanResult.getClassesWithAnnotation(annotationName).isEmpty())
+            if (!scanResult.getClassesWithAnnotation(annotationName).isEmpty()
+                    || scanResult.getPackageInfo().stream().anyMatch(pkg -> pkg.getDirectAnnotationInfo(annotationName) != null))
             {
                 return true;
             }
@@ -217,42 +218,7 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
 
     private void discoverAuthOptions(ScanResult scanResult)
     {
-        var registered = Discovery.firstRegisteredAnnotation(AuthOptions.class);
-        if (registered.isPresent()) { authOptions = wrapAuthOptions(registered.get()); return; }
-        if (scanResult == null) return;
-        // Check classes
-        ClassInfoList annotatedClasses = scanResult.getClassesWithAnnotation(AuthOptions.class);
-        for (var ci : annotatedClasses)
-        {
-            var ann = ClassLoading.loadClass(ci).getAnnotation(AuthOptions.class);
-            if (ann != null)
-            {
-                authOptions = wrapAuthOptions(ann);
-                log.debug("Found @AuthOptions on class: {}", ci.getName());
-                return;
-            }
-        }
-
-        // Check package-info
-        var packageInfoList = scanResult.getPackageInfo();
-        if (packageInfoList != null)
-        {
-            for (var pkgInfo : packageInfoList)
-            {
-                try
-                {
-                    Class<?> pkgClass = Class.forName(pkgInfo.getName() + ".package-info");
-                    var ann = pkgClass.getAnnotation(AuthOptions.class);
-                    if (ann != null)
-                    {
-                        authOptions = wrapAuthOptions(ann);
-                        log.debug("Found @AuthOptions on package: {}", pkgInfo.getName());
-                        return;
-                    }
-                }
-                catch (ClassNotFoundException ignored) {}
-            }
-        }
+        authOptions = Discovery.singleAnnotation(AuthOptions.class).map(this::wrapAuthOptions).orElse(null);
     }
 
     private AuthOptions wrapAuthOptions(AuthOptions ann)
@@ -283,6 +249,13 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
             @Override
             public int leeway() { return Integer.parseInt(env("LEEWAY", String.valueOf(ann.leeway()))); }
         };
+    }
+
+    /** Global fallback for provider JWT clock tolerance, in seconds. */
+    public static int resolveLeeway() {
+        var options = Discovery.singleAnnotation(AuthOptions.class).orElse(null);
+        return Integer.parseInt(com.guicedee.client.Environment.getSystemPropertyOrEnvironment(
+                "VERTX_AUTH_LEEWAY", String.valueOf(options == null ? 0 : options.leeway())));
     }
 
     private void applyAuthOptions(AuthOptions opts)
@@ -374,12 +347,7 @@ public class VertxAuthPreStartup implements IGuicePreStartup<VertxAuthPreStartup
 
     static String env(String property, String defaultValue)
     {
-        String value = Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_" + property, null);
-        if (value != null && !value.isBlank())
-        {
-            return value;
-        }
-        return defaultValue;
+        return Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_" + property, defaultValue);
     }
 
     /**

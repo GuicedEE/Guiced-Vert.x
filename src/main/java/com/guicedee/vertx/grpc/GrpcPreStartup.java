@@ -107,55 +107,15 @@ public class GrpcPreStartup implements IGuicePreStartup<GrpcPreStartup> {
         return info;
     }
 
-    /**
-     * Resolves a value from annotation, then env override, then placeholder resolution.
-     */
+    /** Resolves the normal option key before interpreting the annotation fallback. */
     private static String resolve(String annotationValue, String envKey, String fallback) {
-        String envValue = Environment.getSystemPropertyOrEnvironment(envKey, null);
-        if (envValue != null && !envValue.isBlank()) {
-            return envValue;
-        }
-        if (annotationValue != null && !annotationValue.isBlank()) {
-            return resolveEnvPlaceholders(annotationValue);
-        }
-        return fallback;
+        return Environment.getSystemPropertyOrEnvironment(envKey,
+                annotationValue != null && !annotationValue.isBlank() ? annotationValue : fallback);
     }
 
-    /**
-     * Resolves {@code ${ENV_VAR:default}} placeholders in a string value.
-     */
+    /** Resolves explicit placeholders or a bare configuration name in annotation text. */
     public static String resolveEnvPlaceholders(String value) {
-        if (value == null || !value.contains("${")) {
-            return value;
-        }
-        StringBuilder result = new StringBuilder();
-        int i = 0;
-        while (i < value.length()) {
-            if (i < value.length() - 1 && value.charAt(i) == '$' && value.charAt(i + 1) == '{') {
-                int end = value.indexOf('}', i + 2);
-                if (end == -1) {
-                    result.append(value.substring(i));
-                    break;
-                }
-                String placeholder = value.substring(i + 2, end);
-                String envName;
-                String defaultValue = "";
-                int colonIdx = placeholder.indexOf(':');
-                if (colonIdx >= 0) {
-                    envName = placeholder.substring(0, colonIdx);
-                    defaultValue = placeholder.substring(colonIdx + 1);
-                } else {
-                    envName = placeholder;
-                }
-                String resolved = Environment.getSystemPropertyOrEnvironment(envName, defaultValue);
-                result.append(resolved != null ? resolved : defaultValue);
-                i = end + 1;
-            } else {
-                result.append(value.charAt(i));
-                i++;
-            }
-        }
-        return result.toString();
+        return com.guicedee.client.Environment.resolveAnnotationValue(value);
     }
 
     @Override

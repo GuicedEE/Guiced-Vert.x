@@ -69,6 +69,26 @@ public abstract class RedisModule<J extends RedisModule<J>>
         }
     }
 
+    /** Select via the supported 5.2.3 Redis URI contract, retaining escaped credentials. */
+    static String withDatabase(String connectionString, int database) {
+        if (database == -1) return connectionString;
+        if (database < -1) throw new IllegalArgumentException("Redis database must be -1 or non-negative");
+        var uri = java.net.URI.create(connectionString);
+        String query = uri.getRawQuery();
+        var parameters = new java.util.ArrayList<String>();
+        if (query != null) for (String part : query.split("&")) {
+            if (!java.net.URLDecoder.decode(part.split("=", 2)[0], java.nio.charset.StandardCharsets.UTF_8).equals("db")) parameters.add(part);
+        }
+        String path = "/" + database;
+        if ("unix".equals(uri.getScheme())) {
+            path = uri.getRawPath();
+            parameters.add("db=" + database);
+        }
+        return uri.getScheme() + "://" + (uri.getRawAuthority() == null ? "" : uri.getRawAuthority()) + path
+                + (parameters.isEmpty() ? "" : "?" + String.join("&", parameters))
+                + (uri.getRawFragment() == null ? "" : "#" + uri.getRawFragment());
+    }
+
     private void configureConnection(RedisConnectionInfo info) {
 
         log.info("🔴 Configuring Redis module '{}' — {} [{}]",
@@ -93,9 +113,9 @@ public abstract class RedisModule<J extends RedisModule<J>>
             }
 
             // Set connection string(s)
-            options.addConnectionString(info.getConnectionString());
+            options.addConnectionString(withDatabase(info.getConnectionString(), info.getDatabase()));
             for (String endpoint : info.getEndpoints()) {
-                options.addConnectionString(endpoint);
+                options.addConnectionString(withDatabase(endpoint, info.getDatabase()));
             }
 
             // Pool configuration

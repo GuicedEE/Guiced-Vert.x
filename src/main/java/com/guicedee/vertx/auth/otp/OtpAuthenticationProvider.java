@@ -141,49 +141,14 @@ public class OtpAuthenticationProvider implements IGuicedAuthenticationProvider
 
     private OtpAuthOptions discoverOtpAuthOptions(ScanResult scanResult)
     {
-        var registered = Discovery.firstRegisteredAnnotation(OtpAuthOptions.class);
-        if (registered.isPresent()) return registered.get();
-        if (scanResult == null) return null;
-        var annotatedClasses = scanResult.getClassesWithAnnotation(OtpAuthOptions.class);
-        for (var ci : annotatedClasses)
-        {
-            var ann = ClassLoading.loadClass(ci).getAnnotation(OtpAuthOptions.class);
-            if (ann != null)
-            {
-                log.debug("Found @OtpAuthOptions on class: {}", ci.getName());
-                return ann;
-            }
-        }
-
-        var packageInfoList = scanResult.getPackageInfo();
-        for (var pkgInfo : packageInfoList)
-        {
-            try
-            {
-                Class<?> pkgClass = Class.forName(pkgInfo.getName() + ".package-info");
-                var ann = pkgClass.getAnnotation(OtpAuthOptions.class);
-                if (ann != null)
-                {
-                    log.debug("Found @OtpAuthOptions on package: {}", pkgInfo.getName());
-                    return ann;
-                }
-            }
-            catch (ClassNotFoundException _) { }
-        }
-
-        return null;
+        return Discovery.singleAnnotation(OtpAuthOptions.class).orElse(null);
     }
 
     // ── Env helpers ─────────────────────────────────────
 
     static String env(String property, String defaultValue)
     {
-        String value = Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_OTP_" + property, null);
-        if (value != null && !value.isBlank())
-        {
-            return value;
-        }
-        return defaultValue;
+        return Environment.getSystemPropertyOrEnvironment("VERTX_AUTH_OTP_" + property, defaultValue);
     }
 
     /**

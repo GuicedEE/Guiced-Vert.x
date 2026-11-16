@@ -79,16 +79,16 @@ public @interface Verticle {
      * Defines the maximum time that a worker thread is allowed to execute before
      * being flagged as blocked. This is useful to detect potential performance bottlenecks.
      *
-     * @return the maximum execute time for worker threads (default: 2 minutes)
+     * @return the maximum execute time for worker threads (default: 60 seconds)
      */
-    long maxWorkerExecuteTime() default 2;
+    long maxWorkerExecuteTime() default 60000;
 
     /**
      * Specifies the time unit for the maximum worker execution time.
      *
-     * @return the time unit for the maximum execute time (default: {@code TimeUnit.MINUTES})
+     * @return the time unit for the maximum execute time (default: {@code TimeUnit.MILLISECONDS})
      */
-    TimeUnit maxWorkerExecuteTimeUnit() default TimeUnit.MINUTES;
+    TimeUnit maxWorkerExecuteTimeUnit() default TimeUnit.MILLISECONDS;
 
     /**
      * Specifies the capabilities supported by the verticle.
@@ -110,7 +110,7 @@ public @interface Verticle {
         /**
          * REST (API) capability integrated with Vert.x.
          */
-        Rest("com.guicedee.guicedservlets.rest"),
+        Rest("com.guicedee.rest"),
 
         /**
          * RabbitMQ messaging capability.
@@ -155,7 +155,7 @@ public @interface Verticle {
         /**
          * Persistence (e.g., database) integration support.
          */
-        Persistence("com.guicedee.guicedpersistence"),
+        Persistence("com.guicedee.persistence"),
 
         /**
          * WebSockets capability for real-time messaging.
@@ -165,7 +165,7 @@ public @interface Verticle {
         /**
          * Web services capability for SOAP interactions.
          */
-        WebServices("com.guicedee.guicedservlets.webservices");
+        WebServices("com.guicedee.webservices");
 
         // Associated package name for the capability
         private final String packageName;
