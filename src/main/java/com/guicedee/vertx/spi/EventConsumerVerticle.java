@@ -4,7 +4,6 @@ import com.guicedee.vertx.VertxEventDefinition;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.core.eventbus.MessageConsumer;
-import io.vertx.core.internal.ContextInternal;
 import lombok.extern.log4j.Log4j2;
 
 import java.lang.reflect.Method;
@@ -16,26 +15,26 @@ public class EventConsumerVerticle extends AbstractVerticle {
     private final VertxEventDefinition definition;
     private final Method targetMethod;
     private final Class<?> targetClass;
+    private final Runnable onStop;
+    private MessageConsumer<?> consumer;
 
     public EventConsumerVerticle(String address, VertxEventDefinition definition, Method targetMethod, Class<?> targetClass) {
+        this(address, definition, targetMethod, targetClass, () -> {});
+    }
+
+    EventConsumerVerticle(String address, VertxEventDefinition definition, Method targetMethod,
+                          Class<?> targetClass, Runnable onStop) {
         this.address = address;
         this.definition = definition;
         this.targetMethod = targetMethod;
         this.targetClass = targetClass;
+        this.onStop = onStop;
     }
 
     @Override
     public void start(Promise<Void> startPromise) {
         try {
-            // Guard against duplicate registration for the same address
-            if (!VertxEventRegistry.getRegisteredAddresses().add(address)) {
-                log.debug("Consumer for address '{}' already registered, skipping duplicate", address);
-                startPromise.tryComplete();
-                return;
-            }
-
             boolean localOnly = definition != null && definition.options().localOnly();
-            MessageConsumer<?> consumer;
             if (localOnly) {
                 consumer = vertx.eventBus().localConsumer(address);
             } else {
@@ -69,6 +68,19 @@ public class EventConsumerVerticle extends AbstractVerticle {
         } catch (Throwable t) {
             log.error("Failed to start EventConsumerVerticle for {}", address, t);
             startPromise.tryFail(t);
+        }
+    }
+
+    @Override
+    public void stop(Promise<Void> stopPromise) {
+        if (consumer == null) {
+            onStop.run();
+            stopPromise.tryComplete();
+        } else {
+            consumer.unregister().onComplete(result -> {
+                onStop.run();
+                stopPromise.handle(result);
+            });
         }
     }
 }

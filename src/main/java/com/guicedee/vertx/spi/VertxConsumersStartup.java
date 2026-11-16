@@ -110,8 +110,7 @@ public class VertxConsumersStartup implements VerticleStartup<VertxConsumersStar
                     }
                     options.setInstances(instances);
 
-                    var consumerVerticle = new EventConsumerVerticle(address, def, targetMethod, targetClass);
-                    var deployFuture = vertx.deployVerticle(consumerVerticle, options)
+                    var deployFuture = deployConsumers(vertx, address, def, targetMethod, targetClass, options)
                             .onFailure(t -> log.error("Failed to deploy consumer verticle for {}: {}", address, t.getMessage(), t))
                             .onSuccess(id -> log.trace("Deployed consumer verticle [{}] for address {} (instances={})", id, address, instances));
                     deploymentFutures.add(deployFuture);
@@ -131,6 +130,34 @@ public class VertxConsumersStartup implements VerticleStartup<VertxConsumersStar
         } catch (Throwable t) {
             log.error("Failed to deploy per-address consumer verticles for assignedPackage='{}'", assignedPackage, t);
             startPromise.tryFail(t);
+        }
+    }
+
+    private static Future<String> deployConsumers(Vertx vertx, String address,
+                                                   com.guicedee.vertx.VertxEventDefinition definition,
+                                                   java.lang.reflect.Method method, Class<?> targetClass,
+                                                   DeploymentOptions options) {
+        // Reserve the entire group, not each instance: overlapping package startups must not
+        // deploy a second group, but every intentional instance must register its own consumer.
+        var registered = VertxEventRegistry.getRegisteredAddresses();
+        if (!registered.add(address)) {
+            return Future.succeededFuture();
+        }
+        var remaining = new java.util.concurrent.atomic.AtomicInteger(options.getInstances());
+        var released = new java.util.concurrent.atomic.AtomicBoolean();
+        Runnable release = () -> {
+            if (released.compareAndSet(false, true)) registered.remove(address);
+        };
+        Runnable stopped = () -> {
+            if (remaining.decrementAndGet() == 0) release.run();
+        };
+        try {
+            return vertx.deployVerticle(
+                    () -> new EventConsumerVerticle(address, definition, method, targetClass, stopped), options)
+                    .onFailure(ignored -> release.run());
+        } catch (Throwable failure) {
+            release.run();
+            return Future.failedFuture(failure);
         }
     }
 }
